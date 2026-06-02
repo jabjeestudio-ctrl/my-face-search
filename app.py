@@ -95,7 +95,7 @@ def manual_sync_gdrive():
 # 7. สร้างเมนูฝั่งซ้ายมือ (Sidebar)
 st.sidebar.header("⚙️ เมนูควบคุมระบบ")
 
-# 🎯 ปุ่มไม้ตายกดอัปเดตข้อมูลภาพด้วยตัวเอง (แขกจะได้ไม่ต้องรอเปิดเว็บช้า)
+# ปุ่มกดอัปเดตข้อมูลภาพด้วยตัวเอง (แขกจะได้ไม่ต้องรอเปิดเว็บช้า)
 st.sidebar.markdown("### 🔄 อัปเดตคลังรูปถ่าย")
 if st.sidebar.button("⚡ กดเพื่อดึงรูปใหม่จาก Drive", use_container_width=True):
     with st.sidebar.spinner("กำลังดึงข้อมูลและสแกนหน้า..."):
@@ -117,8 +117,8 @@ if choice == "ฝั่งแอดมินสำหรับผู้จัด
 
 # --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า ---
 if choice == "หน้าหลักสำหรับสแกนรูป":
-    # ⚡ ปรับมาไว้ตรงนี้เปิดปุ๊บปุ่มอัปโหลดเด้งขึ้นมาปั๊บทันทีใน 0 วินาที!
-    uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
+    # 🎯 ปรับปรุงตัวหนังสืออธิบายปุ่มของแขกให้อ่านง่าย ชัดเจนว่าถ่ายสดได้ เลือกรูปในเครื่องได้ครับน้า
+    uploaded_file = st.file_uploader("📸 กดตรงนี้เพื่อ [เปิดกล้องถ่ายสด] หรือ [เลือกรูปในเครื่อง] ของคุณ", type=["jpg", "jpeg", "png"], key="search_photo")
     
     if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
