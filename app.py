@@ -54,7 +54,7 @@ def auto_sync_gdrive():
                     
                     if image is not None:
                         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(40, 40))
+                        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(70, 70))
                         
                         if len(faces) > 0:
                             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -103,7 +103,7 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
             image = cv2.imdecode(file_bytes, 1)
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(40, 40))
+            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(70, 70))
             
             if len(faces) == 0:
                 st.error("❌ ไม่พบใบหน้าในรูปภาพที่ส่งมา กรุณาใช้รูปหน้าตรงชัดเจนครับ")
