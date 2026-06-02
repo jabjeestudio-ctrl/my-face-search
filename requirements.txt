@@ -3,3 +3,4 @@ face_recognition
 chromadb
 opencv-python-headless
 numpy
+face-recognition-models
