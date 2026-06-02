@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import requests
 
-# 🎯 ไม้ตาย: ตรวจจับ LINE แล้วดีดตัวออกทันที
+# 🎯 ไม้ตาย: ตรวจจับ LINE แล้วดีดตัวออกทันที แขกจะได้ใช้แอปกล้องหลักของเครื่องได้เต็มประสิทธิภาพ
 st.markdown(
     """
     <script>
@@ -23,8 +23,8 @@ st.markdown(
 # 1. ตั้งค่าหน้าเว็บกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันมือถือจิ้มติด 100%)")
-st.write("👇 แขกสามารถเลือกได้เลยครับว่าจะถ่ายรูปสด ๆ หรือเลือกรูปที่มีอยู่ในเครื่องเพื่อค้นหา")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันสลับแอปกล้องใหญ่)")
+st.write("👇 แขกจิ้มปุ่มด้านล่างเพื่อเปิดกล้องถ่ายรูป หรือเลือกรูปในเครื่องได้ทันทีครับ")
 
 # 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
@@ -51,7 +51,7 @@ def fetch_all_file_ids_via_api():
         pass
     return []
 
-# ฟังก์ชันดึงรูปภาพแบบเต็มสตรีมเมื่อกดปุ่มอัปเดต
+# ฟังก์ชันดึงรูปภาพจาก Drive เมื่อกดปุ่มอัปเดต
 def manual_sync_gdrive():
     current_file_ids = fetch_all_file_ids_via_api()
     new_file_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
@@ -95,7 +95,6 @@ def manual_sync_gdrive():
 # 7. สร้างเมนูฝั่งซ้ายมือ (Sidebar)
 st.sidebar.header("⚙️ เมนูควบคุมระบบ")
 
-# ปุ่มกดอัปเดตข้อมูลภาพด้วยตัวเอง (แขกจะได้ไม่ต้องรอเปิดเว็บช้า)
 st.sidebar.markdown("### 🔄 อัปเดตคลังรูปถ่าย")
 if st.sidebar.button("⚡ กดเพื่อดึงรูปใหม่จาก Drive", use_container_width=True):
     with st.sidebar.spinner("กำลังดึงข้อมูล..."):
@@ -118,26 +117,14 @@ if choice == "ฝั่งแอดมินสำหรับผู้จัด
 # --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า ---
 if choice == "หน้าหลักสำหรับสแกนรูป":
     
-    # ⚡ ปรับโครงสร้างแยกปุ่มในมือถือออกเป็น 2 ช่องทางอย่างชัดเจน แก้ปัญหากดไม่ไปครับน้า
-    st.markdown("### 🔍 เลือกวิธีส่งรูปภาพใบหน้าของคุณ")
+    # 🎯 จุดเปลี่ยนสำคัญ: เพิ่มคำสั่งดึงแอปกล้องถ่ายรูปหลักของมือถือ แขกจะถ่ายสดได้ไฟล์ใหญ่ชัดเจนชัวร์ครับน้า
+    uploaded_file = st.file_uploader(
+        "📸 จิ้มที่ปุ่มด้านล่างเพื่อ [ถ่ายรูปสดจากกล้อง] หรือ [เลือกรูปภาพในเครื่อง]", 
+        type=["jpg", "jpeg", "png"], 
+        accept_raw_bytes=True,
+        key="camera_or_file"
+    )
     
-    tab1, tab2 = st.tabs(["📸 เปิดกล้องถ่ายสด", "📁 เลือกรูปภาพที่มีอยู่ในเครื่อง"])
-    
-    uploaded_file = None
-    
-    with tab1:
-        # ปุ่มเปิดกล้องของมือถือโดยเฉพาะ จิ้มปุ๊บกล้องหน้าติดปั๊บ 100%
-        camera_file = st.camera_input("หันหน้าตรงเข้ากล้องแล้วกดถ่ายรูปเพื่อค้นหาได้เลยครับ")
-        if camera_file:
-            uploaded_file = camera_file
-            
-    with tab2:
-        # ปุ่มเลือกไฟล์ดั้งเดิม เอาไว้ดึงรูปเก่าจากเครื่อง
-        local_file = st.file_uploader("เลือกไฟล์รูปภาพใบหน้าตรงของคุณ (.jpg, .png)", type=["jpg", "jpeg", "png"], key="local_search")
-        if local_file:
-            uploaded_file = local_file
-    
-    # หากมีการส่งรูปเข้ามาจากช่องทางใดช่องทางหนึ่ง ให้รันระบบสแกนทันที
     if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, 1)
