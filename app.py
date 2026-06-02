@@ -6,7 +6,7 @@ import requests
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันกรองหน้าตรงปก 100%)")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันดาวน์โหลด & ส่งไลน์)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
 # 🛠️ รหัสเชื่อมต่อ Google Drive ของน้า (ล็อคค่าเดิมที่น้าทำผ่านแล้วไว้ให้เลยครับ)
@@ -125,8 +125,8 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                     res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
                     similarity = res[0][0] # ยิ่งเข้าใกล้ 1.0 ยิ่งแปลว่าหน้าคนเดียวกันเป๊ะ
                     
-                    # 🎯 ตั้งเกณฑ์ความเข้มงวด (0.50 ขึ้นไปคือหน้าใกล้เคียงกันมาก ลดโอกาสหน้าปน)
-                    if similarity > 0.52:
+                    # 🎯 ปรับปรุงเกณฑ์ความแม่นยำใหม่: ปรับมาที่ 0.50 เพื่อให้ดึงรูปคู่รูปกลุ่มได้เก่งและง่ายขึ้น
+                    if similarity > 0.50:
                         if item["img_id"] not in seen_images:
                             matched_items.append(item)
                             seen_images.add(item["img_id"])
@@ -138,21 +138,4 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                         with cols[idx % 2]:
                             st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
                             st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
-                            line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
-                            st.markdown(f'<a href="{line_share_url}" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ / แชร์เว็บเข้า LINE</button></a>', unsafe_allow_html=True)
-                            st.write("")
-                else:
-                    st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
-
-# --- หน้าที่ 2: ฝั่งแอดมิน ---
-elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
-    st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
-    password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
-    if password == "2401":
-        st.success("🔓 รหัสผ่านถูกต้อง!")
-        st.write("---")
-        st.subheader("🤖 ระบบเชื่อมต่อ Google Drive เรียลไทม์")
-        unique_photos = len(st.session_state["scanned_file_ids"])
-        st.info(f"💡 ตอนนี้ระบบเชื่อมไดรฟ์ดึงรูปมาได้แล้วทั้งหมด: {unique_photos} รูป")
-    elif password != "":
-        st.error("❌ รหัสผ่านไม่ถูกต้อง!")
+                            line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.
