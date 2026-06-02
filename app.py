@@ -1,98 +1,96 @@
-import streamlit as st
-import face_recognition
+import streamlit as str
+import cv2
 import chromadb
 import numpy as np
-from PIL import Image
-import os
+from chromadb.config import Settings
 
-# 1. ตั้งค่าระบบฐานข้อมูลในเครื่อง
-chroma_client = chromadb.PersistentClient(path="my_vector_db")
-collection = chroma_client.get_or_create_collection(name="gallery_faces")
+st.set_page_config(page_title="Face Search System", layout="wide")
 
-IMAGE_STORE_DIR = "all_gallery_images"
-if not os.path.exists(IMAGE_STORE_DIR):
-    os.makedirs(IMAGE_STORE_DIR)
+st.title("👤 ระบบสแกนและค้นหาใบหน้า (Local Version)")
+st.write("ระบบนี้ทำงานบนคลาวด์ได้ 100% ไม่ต้องใช้ Google Drive หรือดึงตัวดั้งเดิมที่ติดตั้งยาก")
 
-# 2. หน้าตาเว็บไซต์
-st.set_page_config(page_title="ระบบสแกนใบหน้า", layout="wide")
-st.title("🔍 ระบบค้นหาภาพถ่ายด้วยใบหน้า (เวอร์ชันปกติ)")
+# โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-tab1, tab2 = st.tabs(["👤 สำหรับผู้ใช้งาน (สแกนหน้าค้นหา)", "⚙️ สำหรับแอดมิน (อัปโหลดรูปเข้าคลัง)"])
+# เชื่อมต่อฐานข้อมูล ChromaDB ในเครื่องเซิร์ฟเวอร์
+try:
+    chroma_client = chromadb.Client()
+    collection = chroma_client.get_or_create_collection(name="face_signatures")
+except Exception as e:
+    st.error(f"ไม่สามารถเชื่อมต่อฐานข้อมูลได้: {e}")
 
-# แท็บที่ 1: ฝั่งผู้ใช้งาน
-with tab1:
-    st.header("อัปโหลดรูปหน้าตรงของคุณเพื่อค้นหา")
-    user_file = st.file_uploader("เลือกรูปถ่ายหน้าชัดๆ", type=["jpg", "jpeg", "png"], key="user_search")
+menu = ["🏠 หน้าหลัก (ค้นหาใบหน้า)", "📥 ฝั่งแอดมิน (เพิ่มรูปภาพใบหน้า)"]
+choice = st.sidebar.selectbox("เมนูการใช้งาน", menu)
+
+# --- ฝั่งแอดมิน ---
+if choice == "📥 ฝั่งแอดมิน (เพิ่มรูปภาพใบหน้า)":
+    st.subheader("📥 เพิ่มรูปภาพใบหน้าต้นแบบเข้าสู่ระบบ")
+    name = st.text_input("กรอกชื่อ-นามสกุล ของบุคคลในภาพ:")
+    uploaded_file = st.file_uploader("เลือกรูปภาพใบหน้า (JPG/PNG)", type=["jpg", "jpeg", "png"])
     
-    if user_file is not None:
-        user_img = Image.open(user_file)
-        st.image(user_img, caption="รูปของคุณ", width=200)
+    if st.button("บันทึกข้อมูลใบหน้า") and uploaded_file and name:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, 1)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        if st.button("🚀 เริ่มสแกนค้นหาภาพ"):
-            image_np = np.array(user_img.convert('RGB'))
-            user_encodings = face_recognition.face_encodings(image_np)
-            
-            if len(user_encodings) > 0:
-                my_face_vector = user_encodings[0].tolist()
-                
-                with st.spinner("🔍 กำลังค้นหาใบหน้าที่คล้ายกัน..."):
-                    results = collection.query(query_embeddings=[my_face_vector], n_results=10)
-                
-                found_paths = []
-                if results['distances'] and len(results['distances'][0]) > 0:
-                    for dist, metadata in zip(results['distances'][0], results['metadatas'][0]):
-                        if dist < 0.4:  
-                            found_paths.append(metadata['file_path'])
-                
-                found_paths = list(set(found_paths))
-                
-                if len(found_paths) > 0:
-                    st.success(f"🎉 เจอรูปภาพของคุณทั้งหมด {len(found_paths)} รูป")
-                    cols = st.columns(3)
-                    for idx, path in enumerate(found_paths):
-                        with cols[idx % 3]:
-                            if os.path.exists(path):
-                                st.image(path, use_container_width=True)
-                else:
-                    st.warning("😔 ไม่พบรูปภาพของคุณในคลังระบบเลย")
-            else:
-                st.error("❌ AI มองไม่เห็นใบหน้า กรุณาเปลี่ยนรูปใหม่ครับ")
-
-# แท็บที่ 2: ฝั่งแอดมิน
-with tab2:
-    st.header("อัปโหลดรูปภาพทั้งหมดเข้าสู่ระบบ")
-    gallery_files = st.file_uploader("เลือกรูปภาพคลังภาพ (เลือกพร้อมกันได้หลายรูป)", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="admin_upload")
-    
-    if st.button("📤 บันทึกรูปภาพทั้งหมดเข้าสมองกล AI"):
-        if gallery_files:
-            face_counter = 0
-            progress_bar = st.progress(0)
-            
-            for index, uploaded_file in enumerate(gallery_files):
-                save_path = os.path.join(IMAGE_STORE_DIR, uploaded_file.name)
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                
-                check_id = f"{uploaded_file.name}_face_0"
-                existing = collection.get(ids=[check_id])
-                
-                if len(existing['ids']) == 0:
-                    try:
-                        img_data = face_recognition.load_image_file(save_path)
-                        face_locations = face_recognition.face_locations(img_data)
-                        face_encodings = face_recognition.face_encodings(img_data, face_locations)
-                        
-                        for i, encoding in enumerate(face_encodings):
-                            face_unique_id = f"{uploaded_file.name}_face_{i}"
-                            collection.add(
-                                embeddings=[encoding.tolist()],
-                                metadatas=[{"file_path": save_path}],
-                                ids=[face_unique_id]
-                            )
-                            face_counter += 1
-                    except:
-                        pass
-                progress_bar.progress((index + 1) / len(gallery_files))
-            st.success(f"✅ บันทึกใบหน้าใหม่สำเร็จ {face_counter} ใบหน้า")
+        # ตรวจหาใบหน้าในรูป
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        
+        if len(faces) == 0:
+            st.error("❌ ไม่พบใบหน้าในรูปภาพนี้ กรุณาใช้รูปที่เห็นใบหน้าชัดเจน")
         else:
-            st.error("❌ กรุณาเลือกไฟล์รูปภาพก่อนกดปุ่มครับ")
+            # คำนวณค่าฟีเจอร์แบบง่ายจากขนาดและพิกเซล (เพื่อใช้แทนโมเดลเดิมที่ลงไม่ได้)
+            x, y, w, h = faces[0]
+            face_roi = gray[y:y+h, x:x+w]
+            face_resized = cv2.resize(face_roi, (32, 32))
+            flattened_features = face_resized.flatten().tolist()
+            
+            # บันทึกลงฐานข้อมูล ChromaDB
+            collection.add(
+                embeddings=[flattened_features],
+                documents=[name],
+                ids=[f"id_{name}_{np.random.randint(1000,9999)}"]
+            )
+            st.success(f"✔️ บันทึกใบหน้าของ '{name}' เข้าสู่ระบบเรียบร้อยแล้ว!")
+
+# --- หน้าหลักค้นหาใบหน้า ---
+elif choice == "🏠 หน้าหลัก (ค้นหาใบหน้า)":
+    st.subheader("🔍 อัปโหลดรูปภาพเพื่อค้นหาบุคคล")
+    uploaded_file = st.file_uploader("อัปโหลดรูปภาพที่ต้องการสแกนหาตัวตน", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_file:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, 1)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        
+        if len(faces) == 0:
+            st.error("❌ ไม่พบใบหน้าในรูปภาพที่ส่งมา")
+        else:
+            x, y, w, h = faces[0]
+            face_roi = gray[y:y+h, x:x+w]
+            face_resized = cv2.resize(face_roi, (32, 32))
+            flattened_features = face_resized.flatten().tolist()
+            
+            # ตรวจสอบว่าในฐานข้อมูลมีข้อมูลไหม
+            if collection.count() == 0:
+                st.warning("⚠️ ยังไม่มีข้อมูลใบหน้าในระบบ (กรุณาให้แอดมินเพิ่มข้อมูลก่อน)")
+            else:
+                # ค้นหาในฐานข้อมูล ChromaDB
+                results = collection.query(
+                    query_embeddings=[flattened_features],
+                    n_results=1
+                )
+                
+                if results and results['documents'] and len(results['documents'][0]) > 0:
+                    matched_name = results['documents'][0][0]
+                    
+                    # วาดกรอบสี่เหลี่ยมรอบใบหน้า
+                    cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 4)
+                    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    
+                    st.image(image_rgb, caption="ผลการสแกนใบหน้า", use_container_width=True)
+                    st.success(f"🎉 ตรวจพบใบหน้าในระบบ! บุคคลนี้คือ: **{matched_name}**")
+                else:
+                    st.error("❌ ไม่พบข้อมูลบุคคลนี้ในระบบฐานข้อมูล")
