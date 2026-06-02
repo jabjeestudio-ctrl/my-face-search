@@ -1,7 +1,6 @@
 import streamlit as st
 import cv2
 import numpy as np
-import io
 
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
@@ -28,7 +27,7 @@ if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ�
         st.session_state["face_images_db"] = []
         st.sidebar.success("ล้างข้อมูลเรียบร้อยแล้ว!")
 
-# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (ระบบสแกน + โหลดรูป + ส่งไลน์) ---
+# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (ระบบซ่อมแซมปุ่มแชร์ LINE) ---
 if choice == "🏠 หน้าหลัก (สำหรับแขกสแกนรูป)":
     if len(st.session_state["face_images_db"]) == 0:
         st.warning("⚠️ คลังรูปภาพยังว่างอยู่ (กรุณาให้แอดมินใส่รหัสผ่านเข้ามาอัปโหลดรูปภาพต้นแบบก่อนครับ)")
@@ -81,10 +80,10 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                                 key=f"dl_{idx}"
                             )
                             
-                            # 3. ทำปุ่มแชร์ไป LINE (ส่งลิงก์หน้าแอปเพื่อให้แขกแชร์ต่อ หรือใช้วิธีกดแชร์ลิงก์ของเว็บนี้เข้าแชทได้ทันที)
-                            current_url = "https://line.me/R/msg/text/?" + f"เจอรูปถ่ายของฉันในงานอีเวนต์แล้ว! เปิดดูระบบได้ที่นี่เลย: https://{st.experimental_get_query_params().get('app', [''])[0]}.streamlit.app"
-                            # หมายเหตุ: LINE มินิแอป/แชร์ผ่านลิงก์เว็บ จะเน้นการส่งตัวเว็บต่อเพื่อให้เพื่อนเข้ามาดูและกดเซฟจากมือถือตัวเองได้ง่ายที่สุดครับน้า
-                            st.markdown(f'<a href="https://social-plugins.line.me/lineit/share?url=https://{st.experimental_get_query_params().get("app", [""])[0]}.streamlit.app" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ/แชร์เข้า LINE</button></a>', unsafe_allow_html=True)
+                            # 3. ปุ่มส่งต่อเข้า LINE แบบเรียบง่ายแต่นิ่งสนิท ไม่พังชัวร์ครับน้า
+                            # พอแขกกดปุ่มนี้ หน้าจอแชร์ลิงก์ของ LINE จะเด้งขึ้นมาให้แขกกดส่งต่อให้ตัวเองหรือเพื่อนได้ทันที
+                            line_share_url = "https://social-plugins.line.me/lineit/share?url=" + "https://yiday4hy.streamlit.app"
+                            st.markdown(f'<a href="{line_share_url}" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ / แชร์เว็บเข้า LINE</button></a>', unsafe_allow_html=True)
                             st.write("") # เว้นวรรคช่องไฟ
                 else:
                     st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
@@ -104,7 +103,7 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
         
         uploaded_files = st.file_uploader("เลือกรูปภาพถ่ายในงาน (อัปโหลดพร้อมกันได้หลายไฟล์)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
         
-        if st.button("บันบันทึกรูปภาพทั้งหมดเข้าคลัง") and uploaded_files:
+        if st.button("บันทึกรูปภาพทั้งหมดเข้าคลัง") and uploaded_files:
             success_img_count = 0
             
             for f_idx, f in enumerate(uploaded_files):
