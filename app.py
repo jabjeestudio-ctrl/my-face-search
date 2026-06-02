@@ -131,3 +131,14 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
                             "img": image_rgb,
                             "img_id": img_id,
                             "raw_bytes": raw_bytes # ผูกไฟล์ดิบขนาดเต็มไว้สำหรับให้กดโหลด
+                        })
+                    success_img_count += 1
+            
+            if success_img_count > 0:
+                st.success(f"✔️ นำเข้ารูปภาพสำเร็จ {success_img_count} รูปเรียบร้อย!")
+                st.rerun()
+            else:
+                st.error("❌ รูปภาพที่อัปโหลดไม่มีใบหน้าที่ระบบตรวจจับได้เลย")
+                
+    elif password != "":
+        st.error("❌ รหัสผ่านไม่ถูกต้อง!")
