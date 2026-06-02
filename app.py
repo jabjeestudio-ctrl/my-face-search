@@ -2,11 +2,12 @@ import streamlit as st
 import cv2
 import numpy as np
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 # 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-# --- CSS ปรับแต่งหน้าตาให้สวยงาม ---
+# --- CSS ปรับแต่งหน้าตาให้สวยงาม (ไม่กระทบ Logic) ---
 st.markdown("""
     <style>
     .stApp { background-color: #f0f2f6; }
@@ -19,8 +20,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน")
-st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ ระบบจะทยอยดึงภาพมาสแกนให้โดยอัตโนมัติครับ")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันไวพิเศษ)")
+st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ได้เลย ระบบจะทยอยดึงภาพมาสแกนหลังบ้านโดยไม่ทำให้เว็บค้างครับ")
 
 # 🛠️ 2. รหัสเชื่อมต่อ Google Drive
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
@@ -42,31 +43,40 @@ def fetch_all_file_ids_via_api():
     except: pass
     return []
 
+# --- ระบบโหลดไฟล์แบบขนาน (Parallel Download) เพื่อความไว ---
+def download_single_image(file_id):
+    try:
+        url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
+        req = requests.get(url, timeout=10)
+        if req.status_code == 200:
+            return req.content, file_id
+    except: pass
+    return None, None
+
 def auto_sync_gdrive():
     current_file_ids = fetch_all_file_ids_via_api()
-    new_file_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
-    if new_file_ids:
-        batch_files = new_file_ids[:5]
-        for f_idx, file_id in enumerate(batch_files):
-            try:
-                download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
-                req_file = requests.get(download_url, timeout=5)
-                if req_file.status_code == 200:
-                    raw_bytes = req_file.content
-                    image = cv2.imdecode(np.asarray(bytearray(raw_bytes), dtype=np.uint8), 1)
-                    if image is not None:
-                        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(60, 60))
-                        if len(faces) > 0:
-                            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            for (x, y, w, h) in faces:
-                                face_resized = cv2.resize(gray[y:y+h, x:x+w], (40, 40))
-                                st.session_state["face_images_db"].append({
-                                    "feat": face_resized.tolist(), "img": image_rgb, 
-                                    "img_id": f"gdrive_{file_id}_{f_idx}", "raw_bytes": raw_bytes
-                                })
-                    st.session_state["scanned_file_ids"].add(file_id)
-            except: continue
+    new_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
+    
+    if new_ids:
+        batch = new_ids[:5] # ดึงทีละ 5 รูป
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            results = list(executor.map(download_single_image, batch))
+            
+        for raw_bytes, file_id in results:
+            if raw_bytes:
+                image = cv2.imdecode(np.asarray(bytearray(raw_bytes), dtype=np.uint8), 1)
+                if image is not None:
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(60, 60))
+                    if len(faces) > 0:
+                        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                        for (x, y, w, h) in faces:
+                            face_resized = cv2.resize(gray[y:y+h, x:x+w], (40, 40))
+                            st.session_state["face_images_db"].append({
+                                "feat": face_resized.tolist(), "img": image_rgb, 
+                                "img_id": file_id, "raw_bytes": raw_bytes
+                            })
+                st.session_state["scanned_file_ids"].add(file_id)
 
 auto_sync_gdrive()
 
