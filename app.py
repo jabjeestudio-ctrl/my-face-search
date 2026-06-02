@@ -3,10 +3,27 @@ import cv2
 import numpy as np
 import requests
 
+# 🎯 ไม้ตายระดับเซียน: สั่งให้เว็บตรวจจับว่าถ้าเปิดจากใน LINE ให้กระโดดไปเปิดใน Safari/Chrome ทันที แขกจะได้ไม่ติดหน้าล็อกอินกูเกิล
+st.markdown(
+    """
+    <script>
+    if (navigator.userAgent.indexOf('Line') > -1) {
+        var currentUrl = window.location.href;
+        if (currentUrl.indexOf('?') > -1) {
+            window.location.href = currentUrl + '&openExternalBrowser=1';
+        } else {
+            window.location.href = currentUrl + '?openExternalBrowser=1';
+        }
+    }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 # 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันแขกไม่ต้องล็อกอิน)")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันมือถือทะลวง LINE)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
 # 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า
@@ -22,7 +39,7 @@ if "scanned_file_ids" not in st.session_state:
 if "face_images_db" not in st.session_state:
     st.session_state["face_images_db"] = []
 
-# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพทั้งหมดจาก Google API (ดึงทีละ 500 รูป ไม่กินแรงเครื่อง)
+# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพทั้งหมดจาก Google API
 def fetch_all_file_ids_via_api():
     if not GDRIVE_FOLDER_ID or "1PKox87" not in GDRIVE_FOLDER_ID:
         return []
@@ -46,7 +63,7 @@ def auto_sync_gdrive():
         
         for f_idx, file_id in enumerate(batch_files):
             try:
-                # 🎯 แก้ไขไม้ตาย: ใช้ลิงก์ดาวน์โหลดสาธารณะผ่าน API Key แขกจะได้ไม่ต้องล็อกอิน
+                # เรียกดาวน์โหลดรูปด้วย API Key
                 download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
                 req_file = requests.get(download_url, timeout=5)
                 
@@ -71,7 +88,7 @@ def auto_sync_gdrive():
                                     "feat": face_resized.tolist(),
                                     "img": image_rgb,
                                     "img_id": img_id,
-                                    "file_id": file_id,  # บันทึก ID ไว้เปิดดูรูปภาพสาธารณะ
+                                    "file_id": file_id,
                                     "raw_bytes": raw_bytes
                                 })
                     st.session_state["scanned_file_ids"].add(file_id)
@@ -131,7 +148,6 @@ if choice == "หน้าหลักสำหรับสแกนรูป":
                 cols = st.columns(2)
                 for idx, item in enumerate(matched_items):
                     with cols[idx % 2]:
-                        # ⚡ ไม้ตายแก้หน้าจอขาว: เปลี่ยนการแสดงผลให้เรียกผ่านไบนารีในเครื่อง แทนการดึง URL ตรง ๆ แขกจะไม่ติดหน้าล็อกอินแน่นอนครับ
                         st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
                         st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
                         line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
