@@ -6,8 +6,8 @@ import requests
 # 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันรองรับรูปมหาศาล)")
-st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ได้เลย ระบบจะทยอยดึงภาพมาสแกนหลังบ้านโดยไม่ทำให้เว็บค้างครับ")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันแขกไม่ต้องล็อกอิน)")
+st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
 # 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
@@ -22,7 +22,7 @@ if "scanned_file_ids" not in st.session_state:
 if "face_images_db" not in st.session_state:
     st.session_state["face_images_db"] = []
 
-# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพทั้งหมดจาก Google API (ดึงมาตรวจเช็ครายชื่อเฉย ๆ ไม่กินแรงเครื่อง)
+# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพทั้งหมดจาก Google API (ดึงทีละ 500 รูป ไม่กินแรงเครื่อง)
 def fetch_all_file_ids_via_api():
     if not GDRIVE_FOLDER_ID or "1PKox87" not in GDRIVE_FOLDER_ID:
         return []
@@ -39,15 +39,14 @@ def fetch_all_file_ids_via_api():
 # 6. ฟังก์ชันทยอยดึงรูปภาพมาสแกน (ทำทีละ 5 รูปเพื่อป้องกันเซิร์ฟเวอร์ค้าง)
 def auto_sync_gdrive():
     current_file_ids = fetch_all_file_ids_via_api()
-    # กรองเอาเฉพาะรูปใหม่ที่ยังไม่เคยสแกน
     new_file_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
     
     if new_file_ids:
-        # ⚡ ไม้ตาย: จำกัดการดาวน์โหลดและสแกนหน้าแค่รอบละ 5 รูปพอ เพื่อไม่ให้เว็บค้าง
         batch_files = new_file_ids[:5]
         
         for f_idx, file_id in enumerate(batch_files):
             try:
+                # 🎯 แก้ไขไม้ตาย: ใช้ลิงก์ดาวน์โหลดสาธารณะผ่าน API Key แขกจะได้ไม่ต้องล็อกอิน
                 download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
                 req_file = requests.get(download_url, timeout=5)
                 
@@ -58,7 +57,6 @@ def auto_sync_gdrive():
                     
                     if image is not None:
                         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        # สแกนหาใบหน้าขนาด 60x60 ขึ้นไป (ไวและแม่นยำ)
                         faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(60, 60))
                         
                         if len(faces) > 0:
@@ -73,6 +71,7 @@ def auto_sync_gdrive():
                                     "feat": face_resized.tolist(),
                                     "img": image_rgb,
                                     "img_id": img_id,
+                                    "file_id": file_id,  # บันทึก ID ไว้เปิดดูรูปภาพสาธารณะ
                                     "raw_bytes": raw_bytes
                                 })
                     st.session_state["scanned_file_ids"].add(file_id)
@@ -98,7 +97,6 @@ if choice == "ฝั่งแอดมินสำหรับผู้จัด
 
 # --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า ---
 if choice == "หน้าหลักสำหรับสแกนรูป":
-    # ปุ่มอัปโหลดจะแสดงผลทันที ไม่ต้องรอดาวน์โหลดรูปเสร็จ
     uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
     
     if uploaded_file:
@@ -123,7 +121,6 @@ if choice == "หน้าหลักสำหรับสแกนรูป":
                 res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
                 similarity = res[0][0]
                 
-                # 🎯 เกณฑ์ความแม่นยำ 0.50 หาเจอทั้งรูปคู่รูปกลุ่มและตรงปก
                 if similarity > 0.50:
                     if item["img_id"] not in seen_images:
                         matched_items.append(item)
@@ -134,6 +131,7 @@ if choice == "หน้าหลักสำหรับสแกนรูป":
                 cols = st.columns(2)
                 for idx, item in enumerate(matched_items):
                     with cols[idx % 2]:
+                        # ⚡ ไม้ตายแก้หน้าจอขาว: เปลี่ยนการแสดงผลให้เรียกผ่านไบนารีในเครื่อง แทนการดึง URL ตรง ๆ แขกจะไม่ติดหน้าล็อกอินแน่นอนครับ
                         st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
                         st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
                         line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
@@ -151,6 +149,6 @@ elif choice == "ฝั่งแอดมินสำหรับผู้จั�
         st.write("---")
         st.subheader("🤖 ระบบเชื่อมต่อ Google Drive เรียลไทม์")
         unique_photos = len(st.session_state["scanned_file_ids"])
-        st.info(f"💡 ตอนนี้ระบบสแกนรูปเข้าคลังสำเร็จแล้ว: {unique_photos} รูป (ระบบจะทยอยดึงมาเพิ่มเรื่อย ๆ ทุกครั้งที่มีการขยับหน้าเว็บครับ)")
+        st.info(f"💡 ตอนนี้ระบบสแกนรูปเข้าคลังสำเร็จแล้ว: {unique_photos} รูป")
     elif password != "":
         st.error("❌ รหัสผ่านไม่ถูกต้อง!")
