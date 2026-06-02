@@ -5,8 +5,40 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 
 # 1. ตั้งค่าหน้าเว็บ
-st.set_page_config(page_title="Photo Finder System", layout="wide")
+def auto_sync_gdrive():
+    # 1. เช็คว่าดึง ID มาได้ไหม
+    ids = fetch_all_file_ids_via_api()
+    if not ids:
+        st.warning("ระบบดึงรายชื่อรูปจาก Drive ไม่ได้ (เช็ค Folder ID หรือ API Key ครับ)")
+        return
 
+    new_ids = [fid for fid in ids if fid not in st.session_state["scanned_file_ids"]]
+    
+    if new_ids:
+        st.info(f"กำลังดึงรูปใหม่ {len(new_ids)} รูป...") # บอกให้เรารู้ว่ามันกำลังทำงาน
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            results = list(executor.map(download_image, new_ids[:5]))
+            
+        for raw, fid in results:
+            if raw:
+                st.session_state["scanned_file_ids"].add(fid)
+                img = cv2.imdecode(np.asarray(bytearray(raw), dtype=np.uint8), 1)
+                if img is not None:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(60, 60))
+                    if len(faces) > 0:
+                        # ถ้าเจอหน้า ให้เก็บลง DB
+                        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        for (x, y, w, h) in faces:
+                            st.session_state["face_images_db"].append({
+                                "feat": cv2.resize(gray[y:y+h, x:x+w], (40, 40)).tolist(),
+                                "img": img_rgb,
+                                "img_id": fid,
+                                "raw_bytes": raw
+                            })
+                    else:
+                        # อันนี้คือจุดที่มักจะทำให้รู้สึกว่า "ไม่ดึง" ทั้งที่จริงๆ ดึงมาแล้วแต่ไม่มีหน้าคน
+                        st.sidebar.write(f"รูป {fid} สแกนไม่เจอใบหน้า")
 # 2. ตัวแปรและคลังข้อมูล
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
 GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
