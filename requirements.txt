@@ -1,3 +1,2 @@
 streamlit
-chromadb
 opencv-python-headless
