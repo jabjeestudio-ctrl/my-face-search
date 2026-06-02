@@ -3,28 +3,28 @@ import cv2
 import numpy as np
 import requests
 
-# ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
+# 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
 st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันดาวน์โหลด & ส่งไลน์)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
-# 🛠️ รหัสเชื่อมต่อ Google Drive ของน้า (ล็อคค่าเดิมที่น้าทำผ่านแล้วไว้ให้เลยครับ)
+# 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า (ใส่ค่าที่ใช้งานได้จริงไว้ให้เรียบร้อยแล้ว)
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
 GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
 
-# โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
+# 3. โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# ใช้ Session State ในการจำข้อมูลใบหน้าและรูปภาพเต็ม
+# 4. ใช้ Session State ในการจำข้อมูลใบหน้าและรูปภาพเต็ม
 if "scanned_file_ids" not in st.session_state:
     st.session_state["scanned_file_ids"] = set()
 if "face_images_db" not in st.session_state:
     st.session_state["face_images_db"] = []
 
-# ฟังก์ชันดึงรายชื่อไฟล์รูปภาพผ่าน Google API
+# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพผ่าน Google API
 def fetch_all_file_ids_via_api():
-    if not GDRIVE_FOLDER_ID or "วาง_Folder" in GDRIVE_FOLDER_ID or "วาง_API" in GOOGLE_API_KEY:
+    if not GDRIVE_FOLDER_ID or "1PKox87" not in GDRIVE_FOLDER_ID:
         return []
     url = f"https://www.googleapis.com/drive/v3/files?q='{GDRIVE_FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'&key={GOOGLE_API_KEY}&fields=files(id)"
     try:
@@ -36,7 +36,7 @@ def fetch_all_file_ids_via_api():
         pass
     return []
 
-# ฟังก์ชันดึงรูปภาพใหม่เข้ามาระบบสแกนหน้าเบื้องหลัง
+# 6. ฟังก์ชันดึงรูปภาพใหม่เข้ามาระบบสแกนหน้าเบื้องหลัง
 def auto_sync_gdrive():
     current_file_ids = fetch_all_file_ids_via_api()
     new_file_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
@@ -62,7 +62,7 @@ def auto_sync_gdrive():
                             
                             for (x, y, w, h) in faces:
                                 face_roi = gray[y:y+h, x:x+w]
-                                face_resized = cv2.resize(face_roi, (40, 40)) # ปรับขนาดเพิ่มความละเอียดมิติใบหน้า
+                                face_resized = cv2.resize(face_roi, (40, 40))
                                 
                                 st.session_state["face_images_db"].append({
                                     "feat": face_resized.tolist(),
@@ -74,16 +74,16 @@ def auto_sync_gdrive():
             except:
                 continue
 
-# 🔄 รันระบบอัปเดตอัตโนมัติ
+# 🔄 รันระบบอัปเดตอัตโนมัติทำงานเงียบ ๆ หลังบ้าน
 auto_sync_gdrive()
 
-# สร้างเมนูฝั่งซ้ายมือ (Sidebar)
+# 7. สร้างเมนูฝั่งซ้ายมือ (Sidebar)
 st.sidebar.header("⚙️ เมนูการใช้งาน")
-menu = ["🏠 หน้าหลัก (สำหรับแขกสแกนรูป)", "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)"]
+menu = ["หน้าหลักสำหรับสแกนรูป", "ฝั่งแอดมินสำหรับผู้จัดงาน"]
 choice = st.sidebar.radio("เลือกหน้าต่างที่ต้องการ:", menu)
 
 # --- ปุ่มเคลียร์ข้อมูลด่วนฝั่ง Sidebar ---
-if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
+if choice == "ฝั่งแอดมินสำหรับผู้จัดงาน":
     st.sidebar.markdown("---")
     if st.sidebar.button("🗑️ ล้างคลังรูปภาพและบังคับดึงใหม่"):
         st.session_state["face_images_db"] = []
@@ -92,10 +92,10 @@ if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ�
         st.rerun()
 
 # --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า ---
-if choice == "🏠 หน้าหลัก (สำหรับแขกสแกนรูป)":
+if choice == "หน้าหลักสำหรับสแกนรูป":
     total_photos = len(st.session_state["scanned_file_ids"])
     if total_photos == 0:
-        st.warning("⚠️ คลังรูปภาพยังเป็น 0 รูป หรือตั้งค่าผิดพลาด (กรุณาเช็กการกรอกรหัสที่บรรทัด 13-14 ครับ)")
+        st.warning("⚠️ คลังรูปภาพในระบบยังเป็น 0 รูป (กรุณารอระบบดึงข้อมูลจาก Google Drive สักครู่ หรือกดปุ่มบังคับดึงใหม่ที่หน้าแอดมินครับ)")
     else:
         uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
         
@@ -114,18 +114,14 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                 
                 matched_items = []
                 seen_images = set()
-                
-                # แปลงใบหน้าที่แขกส่งมาเป็น numpy array เพื่อคำนวณแบบละเอียด
                 query_face = np.array(face_resized, dtype=np.float32)
                 
                 for item in st.session_state["face_images_db"]:
                     db_face = np.array(item["feat"], dtype=np.float32)
-                    
-                    # ใช้สูตรทางคณิตศาสตร์ OpenCV คำนวณหาความคล้ายคลึงของโครงสร้างหน้า (Template Matching แบบละเอียด)
                     res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
-                    similarity = res[0][0] # ยิ่งเข้าใกล้ 1.0 ยิ่งแปลว่าหน้าคนเดียวกันเป๊ะ
+                    similarity = res[0][0]
                     
-                    # 🎯 ปรับปรุงเกณฑ์ความแม่นยำใหม่: ปรับมาที่ 0.50 เพื่อให้ดึงรูปคู่รูปกลุ่มได้เก่งและง่ายขึ้น
+                    # 🎯 ปรับเกณฑ์ความแม่นยำมาที่ 0.50 เพื่อให้ค้นหารูปคู่รูปกลุ่มเจอดีขึ้น และลดรูปปน
                     if similarity > 0.50:
                         if item["img_id"] not in seen_images:
                             matched_items.append(item)
@@ -145,7 +141,7 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                     st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
 
 # --- หน้าที่ 2: ฝั่งแอดมิน ---
-elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
+elif choice == "ฝั่งแอดมินสำหรับผู้จัดงาน":
     st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
     password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
     if password == "2401":
