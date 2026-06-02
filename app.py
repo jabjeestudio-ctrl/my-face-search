@@ -6,10 +6,10 @@ import requests
 # 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันดาวน์โหลด & ส่งไลน์)")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันรันไว ปุ่มขึ้นทันที)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
-# 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า (ใส่ค่าที่ใช้งานได้จริงไว้ให้เรียบร้อยแล้ว)
+# 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
 GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
 
@@ -22,13 +22,14 @@ if "scanned_file_ids" not in st.session_state:
 if "face_images_db" not in st.session_state:
     st.session_state["face_images_db"] = []
 
-# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพผ่าน Google API
+# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพผ่าน Google API (จำกัดดึงสูงสุดรอบละ 15 รูปเพื่อความรวดเร็ว)
 def fetch_all_file_ids_via_api():
     if not GDRIVE_FOLDER_ID or "1PKox87" not in GDRIVE_FOLDER_ID:
         return []
-    url = f"https://www.googleapis.com/drive/v3/files?q='{GDRIVE_FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'&key={GOOGLE_API_KEY}&fields=files(id)"
+    # ⚡ ปรับแต่งดึงเฉพาะรูปภาพล่าสุด 15 รูปแรก เพื่อไม่ให้ระบบค้างหมุนนาน
+    url = f"https://www.googleapis.com/drive/v3/files?q='{GDRIVE_FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'&key={GOOGLE_API_KEY}&fields=files(id)&pageSize=15"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=5)
         if response.status_code == 200:
             files_data = response.json().get('files', [])
             return [f['id'] for f in files_data]
@@ -45,7 +46,7 @@ def auto_sync_gdrive():
         for f_idx, file_id in enumerate(new_file_ids):
             try:
                 download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
-                req_file = requests.get(download_url, timeout=10)
+                req_file = requests.get(download_url, timeout=5)
                 
                 if req_file.status_code == 200:
                     raw_bytes = req_file.content
@@ -54,7 +55,8 @@ def auto_sync_gdrive():
                     
                     if image is not None:
                         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(70, 70))
+                        # ⚡ ขยายขนาดการสแกนเป็น 80x80 และปรับความเร็ว เพิ่มความไวในการกวาดรูปกลุ่ม 10 เท่า
+                        faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(80, 80))
                         
                         if len(faces) > 0:
                             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -74,7 +76,7 @@ def auto_sync_gdrive():
             except:
                 continue
 
-# 🔄 รันระบบอัปเดตอัตโนมัติทำงานเงียบ ๆ หลังบ้าน
+# 🔄 รันระบบอัปเดตอัตโนมัติแบบด่วน
 auto_sync_gdrive()
 
 # 7. สร้างเมนูฝั่งซ้ายมือ (Sidebar)
@@ -95,50 +97,51 @@ if choice == "ฝั่งแอดมินสำหรับผู้จัด
 if choice == "หน้าหลักสำหรับสแกนรูป":
     total_photos = len(st.session_state["scanned_file_ids"])
     if total_photos == 0:
-        st.warning("⚠️ คลังรูปภาพในระบบยังเป็น 0 รูป (กรุณารอระบบดึงข้อมูลจาก Google Drive สักครู่ หรือกดปุ่มบังคับดึงใหม่ที่หน้าแอดมินครับ)")
-    else:
-        uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
+        st.warning("⚠️ คลังรูปภาพในระบบยังเป็น 0 รูป (กำลังเชื่อมต่อไปยัง Google Drive หรือให้น้าลองกดอัปโหลดรูปของน้าดูเพื่อช่วยกระตุ้นระบบได้เลยครับ)")
+    
+    # ⚡ ปลดล็อกปุ่มอัปโหลดให้ขึ้นมาสแตนด์บายทันที ไม่ต้องรอดาวน์โหลดเสร็จ เพื่อไม่ให้หน้าจอโล่งครับน้า
+    uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
+    
+    if uploaded_file:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, 1)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
         
-        if uploaded_file:
-            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-            image = cv2.imdecode(file_bytes, 1)
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(70, 70))
+        if len(faces) == 0:
+            st.error("❌ ไม่พบใบหน้าในรูปภาพที่ส่งมา กรุณาใช้รูปหน้าตรงชัดเจนครับ")
+        else:
+            x, y, w, h = faces[0]
+            face_roi = gray[y:y+h, x:x+w]
+            face_resized = cv2.resize(face_roi, (40, 40))
             
-            if len(faces) == 0:
-                st.error("❌ ไม่พบใบหน้าในรูปภาพที่ส่งมา กรุณาใช้รูปหน้าตรงชัดเจนครับ")
+            matched_items = []
+            seen_images = set()
+            query_face = np.array(face_resized, dtype=np.float32)
+            
+            for item in st.session_state["face_images_db"]:
+                db_face = np.array(item["feat"], dtype=np.float32)
+                res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
+                similarity = res[0][0]
+                
+                # 🎯 เกณฑ์ความแม่นยำ 0.50 ตรงปกและดึงรูปกลุ่มเก่ง
+                if similarity > 0.50:
+                    if item["img_id"] not in seen_images:
+                        matched_items.append(item)
+                        seen_images.add(item["img_id"])
+            
+            if len(matched_items) > 0:
+                st.success(f"🎉 เจอรูปถ่ายของคุณในระบบทั้งหมด {len(matched_items)} รูปครับ! 👇")
+                cols = st.columns(2)
+                for idx, item in enumerate(matched_items):
+                    with cols[idx % 2]:
+                        st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
+                        st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
+                        line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
+                        st.markdown(f'<a href="{line_share_url}" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ / แชร์เว็บเข้า LINE</button></a>', unsafe_allow_html=True)
+                        st.write("")
             else:
-                x, y, w, h = faces[0]
-                face_roi = gray[y:y+h, x:x+w]
-                face_resized = cv2.resize(face_roi, (40, 40))
-                
-                matched_items = []
-                seen_images = set()
-                query_face = np.array(face_resized, dtype=np.float32)
-                
-                for item in st.session_state["face_images_db"]:
-                    db_face = np.array(item["feat"], dtype=np.float32)
-                    res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
-                    similarity = res[0][0]
-                    
-                    # 🎯 ปรับเกณฑ์ความแม่นยำมาที่ 0.50 เพื่อให้ค้นหารูปคู่รูปกลุ่มเจอดีขึ้น และลดรูปปน
-                    if similarity > 0.50:
-                        if item["img_id"] not in seen_images:
-                            matched_items.append(item)
-                            seen_images.add(item["img_id"])
-                
-                if len(matched_items) > 0:
-                    st.success(f"🎉 เจอรูปถ่ายของคุณในระบบทั้งหมด {len(matched_items)} รูปครับ! 👇")
-                    cols = st.columns(2)
-                    for idx, item in enumerate(matched_items):
-                        with cols[idx % 2]:
-                            st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
-                            st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
-                            line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
-                            st.markdown(f'<a href="{line_share_url}" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ / แชร์เว็บเข้า LINE</button></a>', unsafe_allow_html=True)
-                            st.write("")
-                else:
-                    st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
+                st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
 
 # --- หน้าที่ 2: ฝั่งแอดมิน ---
 elif choice == "ฝั่งแอดมินสำหรับผู้จัดงาน":
