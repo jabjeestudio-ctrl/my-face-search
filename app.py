@@ -9,8 +9,8 @@ st.set_page_config(page_title="Photo Finder System", layout="wide")
 st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันดาวน์โหลด & ส่งไลน์)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
-# 🛠️ จุดสำคัญ: กรอกข้อมูลกูเกิลของน้าตรงนี้ให้ถูกต้อง (ห้ามลบเครื่องหมายคำพูดออกนะน้า)
-GDRIVE_FOLDER_ID = "https://drive.google.com/drive/folders/1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0?usp=sharing"
+# 🛠️ ซ่อมเรียบร้อย: เปลี่ยนจากลิงก์เต็ม ให้เหลือเฉพาะ ID ของน้าตรงนี้แล้วครับ!
+GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
 GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
 
 # โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
@@ -92,7 +92,7 @@ if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ�
         st.rerun()
 
 # --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า ---
-if choice == "🏠 หน้าหลัก (สำหรับแขกสแกanรูป)":
+if choice == "🏠 หน้าหลัก (สำหรับแขกสแกนรูป)":
     total_photos = len(st.session_state["scanned_file_ids"])
     if total_photos == 0:
         st.warning("⚠️ คลังรูปภาพยังเป็น 0 รูป หรือตั้งค่าผิดพลาด (กรุณาเช็กการกรอกรหัสที่บรรทัด 13-14 ครับ)")
