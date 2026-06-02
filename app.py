@@ -10,8 +10,8 @@ st.title("📸 ระบบสแกนใบหน้าค้นหารู�
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
 # 🛠️ จุดสำคัญ: กรอกข้อมูลกูเกิลของน้าตรงนี้ให้ถูกต้อง (ห้ามลบเครื่องหมายคำพูดออกนะน้า)
-GDRIVE_FOLDER_ID = "วาง_Folder_ID_ของน้าตรงนี้"
-GOOGLE_API_KEY = "วาง_API_Key_ที่ได้จากกูเกิลตรงนี้"
+GDRIVE_FOLDER_ID = "https://drive.google.com/drive/folders/1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0?usp=sharing"
+GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
 
 # โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
