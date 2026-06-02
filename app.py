@@ -5,8 +5,8 @@ import numpy as np
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Face Search System", layout="wide")
 
-st.title("👤 ระบบสแกนและค้นหาใบหน้า (Live Webcam Version)")
-st.write("เวอร์ชันสแกนหน้างานอีเวนต์: แขกสามารถเลือกเปิดกล้องถ่ายสด หรืออัปโหลดรูปภาพก็ได้")
+st.title("👤 ระบบสแกนใบหน้าหน้างานอีเวนต์ (Live Camera)")
+st.write("👇 ยืนตรงหน้ากล้องแล้วกดปุ่ม **Take Photo** เพื่อสแกนหาชื่อได้เลยครับ")
 
 # โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -17,7 +17,7 @@ if "face_db" not in st.session_state:
 
 # สร้างเมนูฝั่งซ้ายมือ (Sidebar)
 st.sidebar.header("⚙️ เมนูการใช้งาน")
-menu = ["🏠 หน้าหลัก (ค้นหาใบหน้า)", "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)"]
+menu = ["🏠 หน้าหลัก (กล้องสแกนใบหน้า)", "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)"]
 choice = st.sidebar.radio("เลือกหน้าต่างที่ต้องการ:", menu)
 
 # --- ปุ่มเคลียร์ข้อมูลด่วนฝั่ง Sidebar ---
@@ -61,29 +61,18 @@ def process_and_search_face(image_bytes):
             st.image(image_rgb, caption="ผลการสแกนใบหน้า", use_container_width=True)
             st.success(f"🎉 ตรวจพบใบหน้าในระบบ! ยินดีต้อนรับ: **{best_match}**")
         else:
-            st.error("❌ ไม่พบข้อมูลบุคคลนี้ในระบบฐานข้อมูล (กรุณาติดต่อแอดมินเพื่อลงทะเบียน)")
+            st.error("❌ ไม่พบข้อมูลบุคคลนี้ในระบบฐานข้อมูล (กรุณาลงทะเบียนกับแอดมินก่อนครับ)")
 
 
-# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (สำหรับแขกเล่นหน้างาน) ---
-if choice == "🏠 หน้าหลัก (ค้นหาใบหน้า)":
-    st.subheader("🔍 ส่องกล้องหรืออัปโหลดรูปเพื่อค้นหาบุคคล")
-    
+# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (เปิดกล้องสดอย่างเดียว ไม่มีปุ่มเลือกวิธีสแกนให้งง) ---
+if choice == "🏠 หน้าหลัก (กล้องสแกนใบหน้า)":
     if len(st.session_state["face_db"]) == 0:
-        st.warning("⚠️ ระบบยังไม่มีข้อมูลใบหน้าต้นแบบ (กรุณาให้แอดมินใส่รหัสผ่านเข้ามาเพิ่มรูปภาพก่อนครับ)")
+        st.warning("⚠️ ระบบยังไม่มีข้อมูลใบหน้าต้นแบบ (กรุณาสลับไปเมนูแอดมินทางซ้ายมือเพื่อใส่รหัสผ่านและเพิ่มรูปภาพก่อนครับ)")
     else:
-        # ให้แขกเลือกวิธีสแกนตามสะดวก
-        input_type = st.radio("เลือกวิธีสแกนใบหน้า:", ["📸 เปิดกล้องถ่ายรูปสดหน้างาน", "📁 อัปโหลดไฟล์รูปภาพ (กรณีใช้รูปในเครื่อง)"])
-        
-        if input_type == "📸 เปิดกล้องถ่ายรูปสดหน้างาน":
-            st.write("👇 ยืนตรงหน้ากล้องแล้วกดปุ่ม **Take Photo** ได้เลยครับ")
-            camera_img = st.camera_input("กล้องเว็บแคมสแกนหน้า")
-            if camera_img:
-                process_and_search_face(camera_img.read())
-                
-        elif input_type == "📁 อัปโหลดไฟล์รูปภาพ (กรณีใช้รูปในเครื่อง)":
-            uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้า", type=["jpg", "jpeg", "png"], key="search_face")
-            if uploaded_file:
-                process_and_search_face(uploaded_file.read())
+        # เปิดกล้องให้แขกส่องถ่ายรูปทันทีแบบไม่ต้องเลือก
+        camera_img = st.camera_input("กล้องสแกนใบหน้า")
+        if camera_img:
+            process_and_search_face(camera_img.read())
 
 
 # --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัสผ่านรหัส 2401) ---
@@ -99,19 +88,11 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
         st.subheader("📥 เพิ่มรูปภาพใบหน้าต้นแบบเข้าสู่ระบบ")
         name = st.text_input("กรอกชื่อ-นามสกุล ของบุคคลในภาพ:")
         
-        # แอดมินสามารถเลือกได้ว่าจะถ่ายรูปต้นแบบจากกล้อง หรือจะอัปโหลดไฟล์เอา
-        admin_input_type = st.radio("วิธีป้อนรูปภาพต้นแบบ:", ["📁 อัปโหลดไฟล์รูปภาพ", "📸 ถ่ายรูปจากกล้องสด"], key="admin_type")
-        
+        # หลังบ้านแอดมิน ถ่ายจากกล้องสดเก็บชื่อได้เลยเหมือนกัน ง่ายดีครับ
+        camera_img = st.camera_input("ถ่ายรูปต้นแบบจากกล้อง", key="add_face_cam")
         img_bytes = None
-        
-        if admin_input_type == "📁 อัปโหลดไฟล์รูปภาพ":
-            uploaded_file = st.file_uploader("เลือกรูปภาพใบหน้า (JPG/PNG)", type=["jpg", "jpeg", "png"], key="add_face_file")
-            if uploaded_file:
-                img_bytes = uploaded_file.read()
-        else:
-            camera_img = st.camera_input("ถ่ายรูปต้นแบบจากกล้อง", key="add_face_cam")
-            if camera_img:
-                img_bytes = camera_img.read()
+        if camera_img:
+            img_bytes = camera_img.read()
                 
         if st.button("บันทึกข้อมูลใบหน้า") and name and img_bytes:
             file_bytes = np.asarray(bytearray(img_bytes), dtype=np.uint8)
