@@ -5,8 +5,8 @@ import numpy as np
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายทั้งหมดในงาน")
-st.write("👇 แขกอัปโหลดรูปตัวเอง เพื่อค้นหาภาพถ่าย 'ทั้งหมด' ของตัวเองในระบบคลังภาพได้เลยครับ")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายทั้งหมดในงาน (เวอร์ชันรูปคู่/รูปกลุ่ม)")
+st.write("👇 แขกอัปโหลดรูปตัวเอง เพื่อค้นหาภาพถ่ายทั้งหมดที่มีใบหน้าของคุณ (รวมถึงรูปคู่และรูปกลุ่ม) แบบชัดเต็มขั้น")
 
 # โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -27,7 +27,7 @@ if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ�
         st.session_state["face_images_db"] = []
         st.sidebar.success("ล้างข้อมูลเรียบร้อยแล้ว!")
 
-# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (เวอร์ชันจูนความแม่นยำให้ตรงปก) ---
+# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (สำหรับแขกเล่น - รองรับรูปกลุ่ม ชัดเต็มสตรีม) ---
 if choice == "🏠 หน้าหลัก (สำหรับแขกสแกนรูป)":
     if len(st.session_state["face_images_db"]) == 0:
         st.warning("⚠️ คลังรูปภาพยังว่างอยู่ (กรุณาให้แอดมินใส่รหัสผ่านเข้ามาอัปโหลดรูปภาพต้นแบบก่อนครับ)")
@@ -48,31 +48,34 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                 face_roi = gray[y:y+h, x:x+w]
                 face_resized = cv2.resize(face_roi, (32, 32)).tolist()
                 
-                # ลิสต์สำหรับเก็บทุกรูปที่หน้าตรงปกผ่านเกณฑ์
+                # ลิสต์สำหรับเก็บทุกรูปที่หน้าตรงปกผ่านเกณฑ์ (ใช้ set เพื่อไม่ให้รูปซ้ำกรณีเจอหน้าตัวเองซ้ำในระบบ)
                 matched_images = []
+                seen_images = set()
                 
-                # วิ่งไล่เช็ก "ทุกรูป" ในคลังภาพ
+                # วิ่งไล่เช็กกับคลังภาพ
                 for item in st.session_state["face_images_db"]:
                     diff = np.sum(np.abs(np.array(item["feat"]) - np.array(face_resized)))
                     
-                    # 🔥 บรรทัดนี้สำคัญสุดน้า! ปรับจาก 52000 ลดเหลือ 38000 
-                    # ยิ่งตัวเลขน้อย ระบบยิ่งตรวจเข้มงวด หน้าไม่ตรงปกจริงจะไม่ปล่อยผ่านเลยครับ
+                    # เกณฑ์ความแม่นยำตรงปก (38000)
                     if diff < 38000:  
-                        matched_images.append(item["img"])
+                        # เช็กไอดีรูปภาพเพื่อป้องกันไม่ให้แสดงรูปซ้ำซ้อนบนหน้าจอ
+                        if item["img_id"] not in seen_images:
+                            matched_images.append(item["img"])
+                            seen_images.add(item["img_id"])
                 
                 # --- แสดงผลลัพธ์ ---
                 if len(matched_images) > 0:
-                    st.success(f"🎉 เจอรูปถ่ายตรงปกของคุณในระบบทั้งหมด {len(matched_images)} รูปครับ! ดูด้านล่างได้เลย 👇")
+                    st.success(f"🎉 เจอรูปถ่ายของคุณในระบบทั้งหมด {len(matched_images)} รูปครับ! (รวมรูปคู่/รูปกลุ่มของคุณ) 👇")
                     
-                    # จัดเรียงรูปภาพแถวละ 2 รูปสวยๆ
+                    # จัดเรียงรูปภาพแถวละ 2 รูปสวยๆ ขนาดคมชัดเต็มพิกเซล
                     cols = st.columns(2)
                     for idx, match_img in enumerate(matched_images):
                         with cols[idx % 2]:
-                            st.image(match_img, caption=f"รูปที่ {idx + 1}", use_container_width=True)
+                            st.image(match_img, caption=f"รูปที่ {idx + 1} (ขนาดต้นฉบับ)", use_container_width=True)
                 else:
-                    st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ (หรือหน้าอาจจะไม่ชัดพอ)")
+                    st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
 
-# --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัส 2401 อัปโหลดทีละเยอะๆ) ---
+# --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัส 2401 อัปโหลดคลังภาพกลุ่ม/เดี่ยว พร้อมกัน) ---
 elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
     st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
     password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
@@ -81,35 +84,45 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
         st.success("🔓 รหัสผ่านถูกต้อง! ยินดีต้อนรับแอดมิน")
         st.write("---")
         
-        st.subheader("📥 อัปโหลดคลังรูปภาพเข้าสู่ระบบ (ไม่ต้องพิมพ์ชื่อ)")
-        st.info(f"💡 ตอนนี้มีรูปภาพในคลังทั้งหมด: {len(st.session_state['face_images_db'])} รูป")
+        st.subheader("📥 อัปโหลดคลังรูปภาพเข้าสู่ระบบ (รองรับรูปภาพคู่และรูปกลุ่ม)")
         
-        uploaded_files = st.file_uploader("เลือกรูปภาพถ่ายแขกในงาน (เลือกได้หลายรูปพร้อมกัน)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+        # นับจำนวนรูปภาพที่ไม่ซ้ำกันในคลังปัจจุบัน
+        unique_photos = len(set(item["img_id"] for item in st.session_state["ai_face_db"])) if "ai_face_db" in st.session_state and len(st.session_state["ai_face_db"]) > 0 else len(set(item["img_id"] for item in st.session_state["face_images_db"]))
+        st.info(f"💡 ตอนนี้มีไฟล์รูปภาพในคลังทั้งหมด: {unique_photos} รูป")
+        
+        uploaded_files = st.file_uploader("เลือกรูปภาพถ่ายในงาน (อัปโหลดพร้อมกันได้หลายไฟล์ ทั้งรูปเดี่ยว รูปคู่ รูปกลุ่ม)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
         
         if st.button("บันทึกรูปภาพทั้งหมดเข้าคลัง") and uploaded_files:
-            success_count = 0
-            for f in uploaded_files:
+            success_img_count = 0
+            
+            for f_idx, f in enumerate(uploaded_files):
                 file_bytes = np.asarray(bytearray(f.read()), dtype=np.uint8)
                 image = cv2.imdecode(file_bytes, 1)
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 
+                # สแกนหาใบหน้าทั้งหมดในภาพ (ถ้ารูปกลุ่ม มี 5 หน้า มันจะเจอครบเลยครับ)
                 faces = face_cascade.detectMultiScale(gray, 1.1, 4)
                 
                 if len(faces) > 0:
-                    x, y, w, h = faces[0]
-                    face_roi = gray[y:y+h, x:x+w]
-                    face_resized = cv2.resize(face_roi, (32, 32)).tolist()
-                    
                     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    # สร้างไอดีเฉพาะให้รูปภาพใบนี้ เพื่อให้ระบบรู้ว่าเป็นรูปเดียวกันแม้เจอหลายใบหน้า
+                    img_id = f"{f.name}_{f_idx}_{len(st.session_state['face_images_db'])}"
                     
-                    st.session_state["face_images_db"].append({
-                        "feat": face_resized,
-                        "img": image_rgb
-                    })
-                    success_count += 1
+                    # แตกหน้าทุกคนที่เจอในภาพนี้ออกมาบันทึกรหัสแยกกัน
+                    for (x, y, w, h) in faces:
+                        face_roi = gray[y:y+h, x:x+w]
+                        face_resized = cv2.resize(face_roi, (32, 32)).tolist()
+                        
+                        # บันทึกรหัสของหน้านั้นคู่กับภาพต้นฉบับใบใหญ่เต็มๆ
+                        st.session_state["face_images_db"].append({
+                            "feat": face_resized,
+                            "img": image_rgb,    # ตัวนี้คือรูปขนาดเต็มดั้งเดิม ไม่โดนบีบย่อยครับ
+                            "img_id": img_id
+                        })
+                    success_img_count += 1
             
-            if success_count > 0:
-                st.success(f"✔️ นำเข้าและตรวจเจอใบหน้าสำเร็จทั้งหมด {success_count} รูปเรียบร้อยแล้ว!")
+            if success_img_count > 0:
+                st.success(f"✔️ นำเข้ารูปภาพสำเร็จ {success_img_count} รูป! (ระบบทำการสแกนเก็บใบหน้าทุกคนในภาพเรียบร้อยแล้ว)")
                 st.rerun() 
             else:
                 st.error("❌ รูปภาพที่อัปโหลดไม่มีใบหน้าที่ระบบตรวจจับได้เลย")
