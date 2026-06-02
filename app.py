@@ -138,4 +138,21 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                         with cols[idx % 2]:
                             st.image(item["img"], caption=f"รูปที่ {idx + 1}", use_container_width=True)
                             st.download_button(label=f"📥 ดาวน์โหลดรูปที่ {idx + 1}", data=item["raw_bytes"], file_name=f"photo_{idx+1}.jpg", mime="image/jpeg", key=f"dl_{idx}")
-                            line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.
+                            line_share_url = "https://social-plugins.line.me/lineit/share?url=https://yiday4hy.streamlit.app"
+                            st.markdown(f'<a href="{line_share_url}" target="_blank"><button style="background-color:#06C755; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold;">🟢 ส่งต่อ / แชร์เว็บเข้า LINE</button></a>', unsafe_allow_html=True)
+                            st.write("")
+                else:
+                    st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในคลังภาพ")
+
+# --- หน้าที่ 2: ฝั่งแอดมิน ---
+elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
+    st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
+    password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
+    if password == "2401":
+        st.success("🔓 รหัสผ่านถูกต้อง!")
+        st.write("---")
+        st.subheader("🤖 ระบบเชื่อมต่อ Google Drive เรียลไทม์")
+        unique_photos = len(st.session_state["scanned_file_ids"])
+        st.info(f"💡 ตอนนี้ระบบเชื่อมไดรฟ์ดึงรูปมาได้แล้วทั้งหมด: {unique_photos} รูป")
+    elif password != "":
+        st.error("❌ รหัสผ่านไม่ถูกต้อง!")
