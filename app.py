@@ -5,8 +5,8 @@ import numpy as np
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายหน้างาน (No-Name Version)")
-st.write("👇 แขกอัปโหลดรูปตัวเอง เพื่อค้นหาภาพถ่ายของตัวเองในระบบได้เลยครับ")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายทั้งหมดในงาน")
+st.write("👇 แขกอัปโหลดรูปตัวเอง เพื่อค้นหาภาพถ่าย 'ทั้งหมด' ของตัวเองในระบบคลังภาพได้เลยครับ")
 
 # โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -27,12 +27,12 @@ if choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ�
         st.session_state["face_images_db"] = []
         st.sidebar.success("ล้างข้อมูลเรียบร้อยแล้ว!")
 
-# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (สำหรับแขกเล่น) ---
+# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (สำหรับแขกเล่น - โชว์ทุกรูปที่หน้าเหมือน) ---
 if choice == "🏠 หน้าหลัก (สำหรับแขกสแกนรูป)":
     if len(st.session_state["face_images_db"]) == 0:
         st.warning("⚠️ คลังรูปภาพยังว่างอยู่ (กรุณาให้แอดมินใส่รหัสผ่านเข้ามาอัปโหลดรูปภาพต้นแบบก่อนครับ)")
     else:
-        uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
+        uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปทั้งหมดในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
         
         if uploaded_file:
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
@@ -48,24 +48,30 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
                 face_roi = gray[y:y+h, x:x+w]
                 face_resized = cv2.resize(face_roi, (32, 32)).tolist()
                 
-                best_match_img = None
-                min_diff = float("inf")
+                # ลิสต์สำหรับเก็บทุกรูปที่หน้าคล้ายกันผ่านเกณฑ์
+                matched_images = []
                 
-                # วิ่งหาภาพที่หน้าเหมือนที่สุดในคลัง
+                # วิ่งไล่เช็ก "ทุกรูป" ในคลังภาพ
                 for item in st.session_state["face_images_db"]:
                     diff = np.sum(np.abs(np.array(item["feat"]) - np.array(face_resized)))
-                    if diff < min_diff:
-                        min_diff = diff
-                        best_match_img = item["img"]
+                    
+                    # ถ้าค่าความต่างน้อยกว่า 52000 (แปลว่าหน้าคล้ายกันมากพอ) ให้เก็บรูปนั้นไว้
+                    if diff < 52000:  
+                        matched_images.append(item["img"])
                 
-                # ถ้าเหมือนผ่านเกณฑ์ ให้เอารูปต้นแบบในคลังมาโชว์ให้แขกดูเลย
-                if best_match_img is not None and min_diff < 50000:
-                    st.success("🎉 เจอรูปถ่ายของคุณในคลังระบบแล้ว! คือรูปใบนี้ครับ 👇")
-                    st.image(best_match_img, caption="รูปถ่ายของคุณในระบบ", use_container_width=True)
+                # --- แสดงผลลัพธ์ ---
+                if len(matched_images) > 0:
+                    st.success(f"🎉 เจอรูปถ่ายของคุณในระบบทั้งหมด {len(matched_images)} รูปครับ! ดูด้านล่างได้เลย 👇")
+                    
+                    # จัดเรียงรูปภาพให้แสดงเป็นแถว แถวละ 2 รูปสวยๆ ไม่ยาวเป็นหางว่าวลงไปข้างล่าง
+                    cols = st.columns(2)
+                    for idx, match_img in enumerate(matched_images):
+                        with cols[idx % 2]:
+                            st.image(match_img, caption=f"รูปที่ {idx + 1}", use_container_width=True)
                 else:
                     st.error("❌ ไม่พบรูปภาพที่ตรงกับใบหน้าของคุณในระบบคลังภาพ")
 
-# --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัส 2401 ไม่ต้องกรอกชื่อ อัปโหลดรูปอย่างเดียว) ---
+# --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัส 2401 อัปโหลดทีละเยอะๆ) ---
 elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
     st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
     password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
@@ -77,7 +83,6 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
         st.subheader("📥 อัปโหลดคลังรูปภาพเข้าสู่ระบบ (ไม่ต้องพิมพ์ชื่อ)")
         st.info(f"💡 ตอนนี้มีรูปภาพในคลังทั้งหมด: {len(st.session_state['face_images_db'])} รูป")
         
-        # อัปโหลดได้ทีละหลายๆ รูปพร้อมกันได้เลย น้าลากคลุมรูปในคอมมาหย่อนได้เลยครับ
         uploaded_files = st.file_uploader("เลือกรูปภาพถ่ายแขกในงาน (เลือกได้หลายรูปพร้อมกัน)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
         
         if st.button("บันทึกรูปภาพทั้งหมดเข้าคลัง") and uploaded_files:
@@ -94,10 +99,8 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
                     face_roi = gray[y:y+h, x:x+w]
                     face_resized = cv2.resize(face_roi, (32, 32)).tolist()
                     
-                    # แปลงเป็น RGB เพื่อเอาไว้โชว์ให้แขกดูสวยๆ
                     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     
-                    # บันทึกทั้งฟีเจอร์หน้า และตัวรูปเต็มๆ ไว้โชว์
                     st.session_state["face_images_db"].append({
                         "feat": face_resized,
                         "img": image_rgb
@@ -106,6 +109,7 @@ elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จ
             
             if success_count > 0:
                 st.success(f"✔️ นำเข้าและตรวจเจอใบหน้าสำเร็จทั้งหมด {success_count} รูปเรียบร้อยแล้ว!")
+                st.rerun() # รีเฟรชหน้าจอหลังบ้านเพื่อให้ตัวเลขสถิติมันอัปเดตทันที
             else:
                 st.error("❌ รูปภาพที่อัปโหลดไม่มีใบหน้าที่ระบบตรวจจับได้เลย")
                 
