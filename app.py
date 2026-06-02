@@ -1,59 +1,49 @@
-# --- ปรับแต่งหน้าตาให้สวยงาม (Custom CSS) ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 20px; font-weight: bold; }
-    .css-1r6slb0 { background-color: #ffffff; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .stSuccess, .stError { border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+import streamlit as st
+import cv2
+import numpy as np
+import requests
 
-# ปรับ Layout ให้น่ารักขึ้น
-st.markdown("## 📸 Photo Finder : ค้นหาความทรงจำของคุณ")
-st.markdown("---")
+st.set_page_config(page_title="Photo Finder", layout="wide")
 
-# --- ส่วนของการค้นหา (หน้าหลัก) ---
-if choice == "หน้าหลักสำหรับสแกนรูป":
-    # กล่องอัปโหลดแบบดีไซน์ใหม่
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        uploaded_file = st.file_uploader("อัปโหลดรูปใบหน้าของคุณ", type=["jpg", "jpeg", "png"], key="search_photo")
-        st.info("💡 เคล็ดลับ: ใช้รูปที่เห็นใบหน้าชัดเจน เพื่อการค้นหาที่แม่นยำที่สุดครับ")
+# ตั้งค่า ID ของคุณ
+FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
+API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+st.title("📸 ค้นหารูปถ่ายของคุณในงาน")
+
+# เก็บรูปไว้ในหน่วยความจำ
+if "db" not in st.session_state: st.session_state.db = []
+
+# 1. หลังบ้าน: ดึงรูปจาก Drive (กดปุ่มเดียวพอ)
+if st.sidebar.button("ดึงรูปจาก Google Drive"):
+    url = f"https://www.googleapis.com/drive/v3/files?q='{FOLDER_ID}'+in+parents&key={API_KEY}"
+    files = requests.get(url).json().get('files', [])
+    st.session_state.db = []
+    with st.spinner("กำลังดึงข้อมูล..."):
+        for f in files:
+            img_url = f"https://www.googleapis.com/drive/v3/files/{f['id']}?alt=media&key={API_KEY}"
+            img_data = requests.get(img_url).content
+            img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+            if img is not None:
+                st.session_state.db.append({"img": img, "raw": img_data})
+    st.sidebar.success(f"ดึงรูปเสร็จแล้ว {len(st.session_state.db)} รูป")
+
+# 2. หน้าบ้าน: แขกอัปโหลดรูป
+uploaded = st.file_uploader("อัปโหลดรูปใบหน้าของคุณ", type=["jpg", "png"])
+
+if uploaded and st.session_state.db:
+    user_img = cv2.imdecode(np.frombuffer(uploaded.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
     
-    with col2:
-        if uploaded_file:
-            # (ส่วนประมวลผล Logic ของคุณเหมือนเดิม)
-            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-            image = cv2.imdecode(file_bytes, 1)
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
-            
-            if len(faces) == 0:
-                st.error("❌ ไม่พบใบหน้า กรุณาอัปโหลดรูปที่เห็นหน้าชัดๆ")
-            else:
-                # ... (Logic ค้นหาของคุณเหมือนเดิม) ...
-                if len(matched_items) > 0:
-                    st.balloons() # เพิ่มเอฟเฟกต์พลุ
-                    st.success(f"🎉 เจอรูปของคุณทั้งหมด {len(matched_items)} รูป!")
-                    
-                    # แสดงรูปในรูปแบบ Grid สวยงาม
-                    grid = st.columns(3)
-                    for idx, item in enumerate(matched_items):
-                        with grid[idx % 3]:
-                            st.image(item["img"], use_container_width=True)
-                            st.download_button(label="📥 ดาวน์โหลด", data=item["raw_bytes"], file_name=f"photo_{idx}.jpg", use_container_width=True)
-                else:
-                    st.warning("⚠️ ไม่พบรูปที่ตรงกัน ลองใช้รูปอื่นดูนะครับ")
-
-# --- ส่วนของหลังบ้าน ---
-elif choice == "ฝั่งแอดมินสำหรับผู้จัดงาน":
-    st.markdown("### 🔒 แผงควบคุมระบบ (Admin)")
-    password = st.text_input("กรอกรหัสผ่านเพื่อเข้าสู่ระบบ:", type="password")
-    if password == "2401":
-        st.success("🔓 ระบบพร้อมใช้งาน")
-        st.metric("จำนวนรูปในคลัง", len(st.session_state["face_images_db"]))
-        st.write("---")
-        if st.button("🗑️ ล้างคลังรูปภาพ (Reset)", type="primary"):
-            st.session_state["face_images_db"] = []
-            st.session_state["scanned_file_ids"] = set()
-            st.rerun()
+    st.write("ระบบกำลังค้นหา...")
+    found = False
+    for item in st.session_state.db:
+        gray = cv2.cvtColor(item["img"], cv2.COLOR_BGR2GRAY)
+        # ตรวจจับใบหน้า
+        if len(face_cascade.detectMultiScale(gray, 1.1, 4)) > 0:
+            st.image(item["img"], caption="เจอรูปนี้ในงาน!")
+            st.download_button("ดาวน์โหลดรูปนี้", item["raw"], "my_photo.jpg")
+            found = True
+    if not found: st.error("ไม่พบรูปที่ตรงกัน")
+elif uploaded and not st.session_state.db:
+    st.error("กดปุ่ม 'ดึงรูปจาก Google Drive' ที่เมนูด้านซ้ายก่อนครับ")
