@@ -6,10 +6,10 @@ import requests
 # ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
 st.set_page_config(page_title="Photo Finder System", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันดาวน์โหลด & ส่งไลน์)")
+st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันกรองหน้าตรงปก 100%)")
 st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ แขกสแกนหน้าตรงนี้ระบบดึงภาพใหม่ให้อัตโนมัติเลยครับ")
 
-# 🛠️ ซ่อมเรียบร้อย: เปลี่ยนจากลิงก์เต็ม ให้เหลือเฉพาะ ID ของน้าตรงนี้แล้วครับ!
+# 🛠️ รหัสเชื่อมต่อ Google Drive ของน้า (ล็อคค่าเดิมที่น้าทำผ่านแล้วไว้ให้เลยครับ)
 GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
 GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
 
@@ -54,7 +54,7 @@ def auto_sync_gdrive():
                     
                     if image is not None:
                         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+                        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(40, 40))
                         
                         if len(faces) > 0:
                             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -62,10 +62,10 @@ def auto_sync_gdrive():
                             
                             for (x, y, w, h) in faces:
                                 face_roi = gray[y:y+h, x:x+w]
-                                face_resized = cv2.resize(face_roi, (32, 32)).tolist()
+                                face_resized = cv2.resize(face_roi, (40, 40)) # ปรับขนาดเพิ่มความละเอียดมิติใบหน้า
                                 
                                 st.session_state["face_images_db"].append({
-                                    "feat": face_resized,
+                                    "feat": face_resized.tolist(),
                                     "img": image_rgb,
                                     "img_id": img_id,
                                     "raw_bytes": raw_bytes
@@ -103,21 +103,30 @@ if choice == "🏠 หน้าหลัก (สำหรับแขกสแ�
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
             image = cv2.imdecode(file_bytes, 1)
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(40, 40))
             
             if len(faces) == 0:
                 st.error("❌ ไม่พบใบหน้าในรูปภาพที่ส่งมา กรุณาใช้รูปหน้าตรงชัดเจนครับ")
             else:
                 x, y, w, h = faces[0]
                 face_roi = gray[y:y+h, x:x+w]
-                face_resized = cv2.resize(face_roi, (32, 32)).tolist()
+                face_resized = cv2.resize(face_roi, (40, 40))
                 
                 matched_items = []
                 seen_images = set()
                 
+                # แปลงใบหน้าที่แขกส่งมาเป็น numpy array เพื่อคำนวณแบบละเอียด
+                query_face = np.array(face_resized, dtype=np.float32)
+                
                 for item in st.session_state["face_images_db"]:
-                    diff = np.sum(np.abs(np.array(item["feat"]) - np.array(face_resized)))
-                    if diff < 38000:
+                    db_face = np.array(item["feat"], dtype=np.float32)
+                    
+                    # ใช้สูตรทางคณิตศาสตร์ OpenCV คำนวณหาความคล้ายคลึงของโครงสร้างหน้า (Template Matching แบบละเอียด)
+                    res = cv2.matchTemplate(db_face, query_face, cv2.TM_CCOEFF_NORMED)
+                    similarity = res[0][0] # ยิ่งเข้าใกล้ 1.0 ยิ่งแปลว่าหน้าคนเดียวกันเป๊ะ
+                    
+                    # 🎯 ตั้งเกณฑ์ความเข้มงวด (0.50 ขึ้นไปคือหน้าใกล้เคียงกันมาก ลดโอกาสหน้าปน)
+                    if similarity > 0.52:
                         if item["img_id"] not in seen_images:
                             matched_items.append(item)
                             seen_images.add(item["img_id"])
