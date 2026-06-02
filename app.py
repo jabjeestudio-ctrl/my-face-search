@@ -59,4 +59,59 @@ def process_and_search_face(image_bytes):
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
             st.image(image_rgb, caption="ผลการสแกนใบหน้า", use_container_width=True)
-            st.success(f"
+            st.success(f"🎉 ตรวจพบใบหน้าในระบบ! ยินดีต้อนรับ: **{best_match}**")
+        else:
+            st.error("❌ ไม่พบข้อมูลบุคคลนี้ในระบบฐานข้อมูล (กรุณาลงทะเบียนกับแอดมินก่อนครับ)")
+
+
+# --- หน้าที่ 1: หน้าหลักค้นหาใบหน้า (อัปโหลดรูปอย่างเดียว ไม่มีปุ่มเลือกวิธีสแกนให้รกสายตา) ---
+if choice == "🏠 หน้าหลัก (อัปโหลดรูปสแกน)":
+    if len(st.session_state["face_db"]) == 0:
+        st.warning("⚠️ ระบบยังไม่มีข้อมูลใบหน้าต้นแบบ (กรุณาสลับไปเมนูแอดมินทางซ้ายมือเพื่อใส่รหัสผ่านและเพิ่มรูปภาพก่อนครับ)")
+    else:
+        # เปิดปุ่มให้อัปโหลดรูปภาพทันทีอย่างเดียว
+        uploaded_file = st.file_uploader("เลือกรูปภาพใบหน้าที่ต้องการค้นหาชื่อ", type=["jpg", "jpeg", "png"], key="search_face_file")
+        if uploaded_file:
+            process_and_search_face(uploaded_file.read())
+
+
+# --- หน้าที่ 2: ฝั่งแอดมิน (ล็อกรหัสผ่านรหัส 2401) ---
+elif choice == "🔒 ฝั่งแอดมิน (เฉพาะผู้จัดงาน)":
+    st.subheader("🔒 กรุณาใส่รหัสผ่านแอดมินเพื่อเข้าสู่ระบบ")
+    
+    password = st.text_input("กรอกรหัสผ่านหลังบ้าน:", type="password")
+    
+    if password == "2401":
+        st.success("🔓 รหัสผ่านถูกต้อง! ยินดีต้อนรับแอดมิน")
+        st.write("---")
+        
+        st.subheader("📥 เพิ่มรูปภาพใบหน้าต้นแบบเข้าสู่ระบบ")
+        name = st.text_input("กรอกชื่อ-นามสกุล ของบุคคลในภาพ:")
+        
+        # หลังบ้านแอดมินก็ใช้อัปโหลดไฟล์รูปภาพเข้าสู่ฐานข้อมูลเหมือนกัน คลีนๆ ครับ
+        uploaded_file = st.file_uploader("เลือกรูปภาพใบหน้าต้นแบบ (JPG/PNG)", type=["jpg", "jpeg", "png"], key="add_face_file")
+        
+        img_bytes = None
+        if uploaded_file:
+            img_bytes = uploaded_file.read()
+                
+        if st.button("บันทึกข้อมูลใบหน้า") and name and img_bytes:
+            file_bytes = np.asarray(bytearray(img_bytes), dtype=np.uint8)
+            image = cv2.imdecode(file_bytes, 1)
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            
+            if len(faces) == 0:
+                st.error("❌ ไม่พบใบหน้าในรูปภาพนี้ กรุณาใช้รูปภาพที่เห็นใบหน้าชัดเจนแล้วลองอีกครั้ง")
+            else:
+                x, y, w, h = faces[0]
+                face_roi = gray[y:y+h, x:x+w]
+                face_resized = cv2.resize(face_roi, (32, 32))
+                
+                st.session_state["face_db"][name] = face_resized.tolist()
+                st.success(f"✔️ บันทึกใบหน้าของ '{name}' เข้าสู่ระบบเรียบร้อยแล้ว!")
+                st.info(f"💡 ตอนนี้ในระบบมีข้อมูลใบหน้าทั้งหมด {len(st.session_state['face_db'])} คน")
+                
+    elif password != "":
+        st.error("❌ รหัสผ่านไม่ถูกต้อง! แขกในงานห้ามเข้านะครับ")
