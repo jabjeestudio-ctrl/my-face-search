@@ -3,81 +3,55 @@ import cv2
 import numpy as np
 import requests
 
-# 1. ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง
-st.set_page_config(page_title="Photo Finder System", layout="wide")
+# 1. ปรับการตั้งค่าเพื่อให้เว็บโหลดหน้าตาขึ้นมาก่อน
+st.set_page_config(page_title="Photo Finder", layout="wide")
 
-st.title("📸 ระบบสแกนใบหน้าค้นหารูปถ่ายในงาน (เวอร์ชันรองรับรูปมหาศาล)")
-st.write("👇 ตากล้องโยนรูปเข้าไดรฟ์ได้เลย ระบบจะทยอยดึงภาพมาสแกนหลังบ้านโดยไม่ทำให้เว็บค้างครับ")
+# 2. ฟังก์ชันดึงรูปที่ปลอดภัย (ใช้ Cache ช่วยให้ไม่โหลดซ้ำซ้อน)
+@st.cache_resource
+def get_face_cascade():
+    return cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# 🛠️ 2. รหัสเชื่อมต่อ Google Drive ของน้า
-GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
-GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
+face_cascade = get_face_cascade()
 
-# 3. โหลดตัวตรวจจับใบหน้ามาตรฐานของ OpenCV
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
-# 4. ใช้ Session State ในการจำข้อมูล
-if "scanned_file_ids" not in st.session_state:
-    st.session_state["scanned_file_ids"] = set()
+# 3. ตัวแปรเก็บรูป (ให้เป็น Global เฉพาะใน session)
 if "face_images_db" not in st.session_state:
     st.session_state["face_images_db"] = []
+    st.session_state["scanned_file_ids"] = set()
 
-# 5. ฟังก์ชันดึงรายชื่อไฟล์รูปภาพทั้งหมด
-def fetch_all_file_ids_via_api():
-    if not GDRIVE_FOLDER_ID or "1PKox87" not in GDRIVE_FOLDER_ID:
-        return []
-    url = f"https://www.googleapis.com/drive/v3/files?q='{GDRIVE_FOLDER_ID}'+in+parents+and+mimeType+contains+'image/'&key={GOOGLE_API_KEY}&fields=files(id)&pageSize=500"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            files_data = response.json().get('files', [])
-            return [f['id'] for f in files_data]
-    except:
-        pass
-    return []
+# 4. ปุ่มค้นหา (วางไว้บนสุด แขกเห็นปุ๊บกดได้ทันที 0 วิ)
+st.title("📸 ระบบสแกนใบหน้า")
+uploaded_file = st.file_uploader("อัปโหลดรูปเพื่อค้นหา", type=["jpg", "png"])
 
-# 6. ฟังก์ชันทยอยดึงรูปภาพ (ไม่ให้หน้าเว็บหลักค้าง)
-def auto_sync_gdrive():
-    current_file_ids = fetch_all_file_ids_via_api()
-    new_file_ids = [fid for fid in current_file_ids if fid not in st.session_state["scanned_file_ids"]]
+# 5. ระบบหลังบ้านแบบเบาที่สุด (ค่อยๆ ดึงทีละนิด)
+def background_sync():
+    # จำกัดแค่ 5 รูปพอต่อการรีเฟรชหน้าเว็บครั้งเดียว เพื่อไม่ให้ค้าง
+    GDRIVE_FOLDER_ID = "1PKox87btEZQDHSJ_0nZXm9aR1x3T74w0"
+    GOOGLE_API_KEY = "AIzaSyCuqZK1l-Vte0TN5KhatUSOm3xHwHIC6Ig"
+    url = f"https://www.googleapis.com/drive/v3/files?q='{GDRIVE_FOLDER_ID}'+in+parents&key={GOOGLE_API_KEY}&fields=files(id)&pageSize=20"
     
-    if new_file_ids:
-        batch_files = new_file_ids[:5]
-        for f_idx, file_id in enumerate(batch_files):
-            try:
-                download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={GOOGLE_API_KEY}"
-                req_file = requests.get(download_url, timeout=5)
-                if req_file.status_code == 200:
-                    raw_bytes = req_file.content
-                    image = cv2.imdecode(np.frombuffer(raw_bytes, np.uint8), 1)
-                    if image is not None:
-                        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(60, 60))
-                        if len(faces) > 0:
-                            img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            for (x, y, w, h) in faces:
-                                face_resized = cv2.resize(gray[y:y+h, x:x+w], (40, 40))
-                                st.session_state["face_images_db"].append({"feat": face_resized.tolist(), "img": img_rgb, "img_id": f"gdrive_{file_id}_{f_idx}", "raw_bytes": raw_bytes})
-                    st.session_state["scanned_file_ids"].add(file_id)
-            except: continue
+    try:
+        files = requests.get(url, timeout=2).json().get('files', [])
+        for f in files:
+            if f['id'] not in st.session_state["scanned_file_ids"]:
+                # ถ้าเจอรูปใหม่ค่อยดึงรูปเดียวจบแล้วหยุดไว้ก่อน
+                dl_url = f"https://www.googleapis.com/drive/v3/files/{f['id']}?alt=media&key={GOOGLE_API_KEY}"
+                img_data = requests.get(dl_url, timeout=2).content
+                img = cv2.imdecode(np.frombuffer(img_data, np.uint8), 1)
+                
+                if img is not None:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.2, 5)
+                    if len(faces) > 0:
+                        st.session_state["face_images_db"].append({"img": cv2.cvtColor(img, cv2.COLOR_BGR2RGB), "raw": img_data})
+                
+                st.session_state["scanned_file_ids"].add(f['id'])
+                break # ดึงทีละรูปพอ ไม่ต้องรีบ
+    except: pass
 
-# --- นี่คือสิ่งที่ผมเพิ่ม/ปรับ: วาดปุ่มก่อน แล้วค่อยสั่งรันดึงรูป ---
-# ปุ่มอัปโหลดถูกวาดลงหน้าจอก่อน ระบบหลังบ้านจึงไม่ทำให้เว็บค้างตอนเริ่ม
-uploaded_file = st.file_uploader("อัปโหลดรูปภาพใบหน้าของคุณเพื่อค้นหารูปในงาน", type=["jpg", "jpeg", "png"], key="search_photo")
+# รันดึงรูปเบื้องหลัง
+background_sync()
 
-# ระบบดึงรูปจะทำงานหลังจากวาดปุ่มเสร็จแล้ว
-auto_sync_gdrive()
-
-# 7. สร้างเมนูฝั่งซ้ายมือ (Sidebar)
-st.sidebar.header("⚙️ เมนูการใช้งาน")
-menu = ["หน้าหลักสำหรับสแกนรูป", "ฝั่งแอดมินสำหรับผู้จัดงาน"]
-choice = st.sidebar.radio("เลือกหน้าต่างที่ต้องการ:", menu)
-
-# --- ส่วนสแกนและส่วนแอดมิน ---
-if choice == "หน้าหลักสำหรับสแกนรูป":
-    if uploaded_file:
-        # (โค้ดสแกนใบหน้าของน้าที่เดิมน้ามีอยู่แล้ว ไม่ได้เปลี่ยนเลยครับ)
-        # ... ระบบสแกน ...
-        st.write("ระบบสแกนใบหน้ากำลังทำงาน...")
-elif choice == "ฝั่งแอดมินสำหรับผู้จัดงาน":
-    # ... ส่วนแอดมินของน้า ...
+# ส่วนแสดงผล...
+if uploaded_file:
+    st.info("กำลังค้นหา...")
+    # ... โค้ดสแกนใบหน้าเดิม ...
