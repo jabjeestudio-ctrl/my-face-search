@@ -32,6 +32,14 @@ if uploaded_file is not None:
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                st.image(image_paths[idx])
-    else:
-        st.warning("ไม่พบใบหน้าในรูป")
+                # สร้าง path ใหม่โดยเอาชื่อไฟล์มาต่อกับโฟลเดอร์
+                file_name = image_paths[idx]
+                file_path = os.path.join("event_photos", file_name)
+                
+                # อ่านรูปด้วย OpenCV
+                img_to_show = cv2.imread(file_path)
+                if img_to_show is not None:
+                    img_to_show = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
+                    st.image(img_to_show, use_container_width=True)
+                else:
+                    st.error(f"หาไฟล์ไม่เจอที่: {file_path}")
