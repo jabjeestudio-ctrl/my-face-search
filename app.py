@@ -7,16 +7,15 @@ import insightface
 from insightface.app import FaceAnalysis
 import os
 
+# แก้บรรทัดที่ 11 ใน app.py ให้เป็นแบบนี้ครับ
 @st.cache_resource
 def load_resources():
+    if not os.path.exists("event.index"):
+        st.error("ไม่พบไฟล์ event.index ในระบบ! กรุณาตรวจสอบการอัปโหลด")
+        return None, None, None
+        
     index = faiss.read_index("event.index")
-    with open("image_paths.pkl", "rb") as f:
-        image_paths = pickle.load(f)
-    app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
-    app.prepare(ctx_id=0, det_size=(640, 640))
-    return index, image_paths, app
-
-index, image_paths, app = load_resources()
+    # ... (ส่วนที่เหลือเหมือนเดิม)
 
 st.title("ระบบสแกนใบหน้าค้นหารูป")
 uploaded_file = st.file_uploader("อัปโหลดรูปของคุณ", type=['jpg', 'jpeg', 'png'])
