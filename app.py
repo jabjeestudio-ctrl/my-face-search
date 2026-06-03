@@ -36,28 +36,17 @@ if uploaded_file is not None:
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                # 1. ดึงชื่อไฟล์ออกมาเพียวๆ
-                base_name = os.path.basename(image_paths[idx])
+                # ไม่ต้อง join แล้ว! อ่านชื่อไฟล์ตรงๆ จาก list
+                file_name = image_paths[idx] 
                 
-                # 2. ลองหาไฟล์ใน 2 ที่ (แบบมีโฟลเดอร์ และ แบบไม่มีโฟลเดอร์)
-                possible_paths = [
-                    os.path.join("event_photos", base_name),
-                    base_name
-                ]
-                
-                found_path = None
-                for p in possible_paths:
-                    if os.path.exists(p):
-                        found_path = p
-                        break
-                
-                # 3. ถ้าเจอไฟล์ ให้แสดงผล
-                if found_path:
-                    img_to_show = cv2.imread(found_path)
+                # เช็คว่าไฟล์มีอยู่จริงไหม (ในโฟลเดอร์ที่ app.py รันอยู่)
+                if os.path.exists(file_name):
+                    img_to_show = cv2.imread(file_name)
                     if img_to_show is not None:
                         img_to_show = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
                         st.image(img_to_show, use_container_width=True)
                     else:
-                        st.error(f"อ่านไฟล์ไม่ได้: {found_path}")
+                        st.error(f"ไฟล์เสีย: {file_name}")
                 else:
-                    st.error(f"หาไฟล์ไม่เจอในระบบ: {base_name}")
+                    # ถ้ายังแดง ให้มันโชว์ชื่อไฟล์ที่มันหาออกมาให้เห็นชัดๆ เลยครับ
+                    st.error(f"หาไฟล์ชื่อ '{file_name}' ไม่เจอใน GitHub!")
