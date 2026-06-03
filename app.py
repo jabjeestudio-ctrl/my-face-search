@@ -8,9 +8,21 @@ import os
 
 @st.cache_resource
 def load_resources():
-    # โหลดไฟล์ Index และ Path จากตำแหน่งที่แอปทำงานอยู่
-    index = faiss.read_index("event.index")
-    with open("image_paths.pkl", "rb") as f:
+    # 1. ดูว่าตอนนี้โปรแกรมอยู่ที่ไหน
+    current_dir = os.getcwd()
+    
+    # 2. เช็คไฟล์ในโฟลเดอร์ปัจจุบัน
+    index_path = os.path.join(current_dir, "event.index")
+    pkl_path = os.path.join(current_dir, "image_paths.pkl")
+    
+    st.write(f"กำลังหาไฟล์ที่: {current_dir}") # บรรทัดนี้จะช่วยให้คุณเห็นในหน้าเว็บเลยว่ามันหาที่ไหน
+    
+    if not os.path.exists(index_path):
+        st.error(f"ไม่เจอ event.index ใน {current_dir}")
+        return None, None, None
+        
+    index = faiss.read_index(index_path)
+    with open(pkl_path, "rb") as f:
         image_paths = pickle.load(f)
     
     app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
