@@ -1,4 +1,2 @@
-streamlit
 opencv-python-headless
-numpy
-# ไลบรารีอื่นๆ ที่คุณใช้ในโปรเจกต์
+streamlit
