@@ -1,4 +1,7 @@
 streamlit
 opencv-python-headless
 faiss-cpu
+insightface
+onnxruntime
 numpy
+pillow
