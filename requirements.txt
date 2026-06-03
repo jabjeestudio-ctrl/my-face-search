@@ -1,6 +1,6 @@
 streamlit
 insightface
-opencv-python-headless
 onnxruntime
+opencv-python-headless
 numpy
 faiss-cpu
