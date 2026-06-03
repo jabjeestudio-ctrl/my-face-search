@@ -1,25 +1,23 @@
+import os
 import streamlit as st
-import cv2
-import numpy as np
 import faiss
 import pickle
-import insightface
 from insightface.app import FaceAnalysis
-import os
 
-# แก้บรรทัดที่ 11 ใน app.py ให้เป็นแบบนี้ครับ
 @st.cache_resource
 def load_resources():
-    if not os.path.exists("event.index"):
-        st.error("ไม่พบไฟล์ event.index ในระบบ! กรุณาตรวจสอบการอัปโหลด")
-        return None, None, None
+    # บังคับให้หาไฟล์ในตำแหน่งที่สคริปต์ทำงานอยู่
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    index_path = os.path.join(base_path, "event.index")
+    pkl_path = os.path.join(base_path, "image_paths.pkl")
+    
+    index = faiss.read_index(index_path)
+    with open(pkl_path, "rb") as f:
+        image_paths = pickle.load(f)
         
-    index = faiss.read_index("event.index")
-    # ... (ส่วนที่เหลือเหมือนเดิม)
-
-st.title("ระบบสแกนใบหน้าค้นหารูป")
-uploaded_file = st.file_uploader("อัปโหลดรูปของคุณ", type=['jpg', 'jpeg', 'png'])
-
+    app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+    app.prepare(ctx_id=0, det_size=(640, 640))
+    return index, image_paths, app
 if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img_guest = cv2.imdecode(file_bytes, 1)
