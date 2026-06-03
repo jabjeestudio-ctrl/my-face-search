@@ -32,11 +32,22 @@ if uploaded_file is not None:
         guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
+        # --- แก้ไขส่วนการแสดงผลรูป (ลูป for idx in indices[0]:) ---
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                # --- จุดที่แก้: ใช้ os.path.join เพื่อระบุที่อยู่รูปใน Cloud ---
-                file_name = os.path.basename(image_paths[idx])
-                st.image(os.path.join("event_photos", file_name))
-    else:
-        st.warning("ไม่พบใบหน้าในรูป")
+                # สร้าง path เต็ม
+                file_path = os.path.join("event_photos", os.path.basename(image_paths[idx]))
+                
+                # ตรวจสอบว่าไฟล์มีอยู่จริงไหมก่อนอ่าน
+                if os.path.exists(file_path):
+                    # เปิดรูปด้วย OpenCV แทนการใช้ st.image(path) โดยตรง
+                    img_to_show = cv2.imread(file_path)
+                    if img_to_show is not None:
+                        # แปลงสี BGR เป็น RGB เพราะ OpenCV อ่านสีสลับกัน
+                        img_to_show = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
+                        st.image(img_to_show, use_container_width=True)
+                    else:
+                        st.error(f"ไม่สามารถอ่านไฟล์: {file_name}")
+                else:
+                    st.error(f"หาไฟล์ไม่พบในระบบ: {file_path}")
