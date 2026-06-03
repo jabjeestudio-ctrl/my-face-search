@@ -6,7 +6,6 @@ import pickle
 import insightface
 from insightface.app import FaceAnalysis
 
-# ใช้ model 'buffalo_l' เพื่อความแม่นยำและเสถียร
 app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640))
 
@@ -23,7 +22,9 @@ for filename in os.listdir(folder):
         faces = app.get(img)
         for face in faces:
             embeddings.append(face.normed_embedding)
-            image_paths.append(img_path)
+            # --- เปลี่ยนที่บรรทัดนี้ ---
+            image_paths.append(os.path.basename(img_path)) 
+            # ------------------------
 
 if embeddings:
     embeddings = np.array(embeddings, dtype='float32')
