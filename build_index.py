@@ -25,7 +25,7 @@ for filename in os.listdir(folder):
         faces = app.get(img)
         for face in faces:
             embeddings.append(face.normed_embedding)
-            image_paths.append(img_path)
+            image_paths.append(os.path.basename(img_path))
 
 if embeddings:
     embeddings = np.array(embeddings, dtype='float32')
