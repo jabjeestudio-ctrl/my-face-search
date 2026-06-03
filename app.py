@@ -8,10 +8,12 @@ import os
 
 @st.cache_resource
 def load_resources():
+    # โหลดไฟล์ Index และ Path จากตำแหน่งที่แอปทำงานอยู่
     index = faiss.read_index("event.index")
     with open("image_paths.pkl", "rb") as f:
         image_paths = pickle.load(f)
-    app = FaceAnalysis(providers=['CPUExecutionProvider'])
+    
+    app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     return index, image_paths, app
 
@@ -26,12 +28,15 @@ if uploaded_file is not None:
     
     guest_faces = app.get(img_guest)
     if guest_faces:
+        # ใช้ embedding จากรูปที่อัปโหลด
         guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                st.image(image_paths[idx])
+                # --- จุดที่แก้: ใช้ os.path.join เพื่อระบุที่อยู่รูปใน Cloud ---
+                file_name = os.path.basename(image_paths[idx])
+                st.image(os.path.join("event_photos", file_name))
     else:
         st.warning("ไม่พบใบหน้าในรูป")
