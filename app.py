@@ -8,17 +8,19 @@ import os
 
 @st.cache_resource
 def load_resources():
+    # โหลดไฟล์ Index และ Path จากตำแหน่งที่แอปทำงานอยู่
     index = faiss.read_index("event.index")
     with open("image_paths.pkl", "rb") as f:
         image_paths = pickle.load(f)
-    app = FaceAnalysis(providers=['CPUExecutionProvider'])
+    
+    app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     return index, image_paths, app
 
 index, image_paths, app = load_resources()
 
-st.title("ระบบสแกนใบหน้า")
-uploaded_file = st.file_uploader("อัปโหลดรูป", type=['jpg', 'jpeg', 'png'])
+st.title("ระบบสแกนใบหน้าค้นหารูป")
+uploaded_file = st.file_uploader("อัปโหลดรูปของคุณ", type=['jpg', 'jpeg', 'png'])
 
 if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
@@ -26,18 +28,15 @@ if uploaded_file is not None:
     
     guest_faces = app.get(img_guest)
     if guest_faces:
+        # ใช้ embedding จากรูปที่อัปโหลด
         guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
+        st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                file_name = image_paths[idx] 
-                # นี่คือจุดที่แก้: บังคับเอาชื่อไฟล์มาต่อกับ folder ตรงนี้
-                file_path = os.path.join("event_photos", file_name)
-                
-                if os.path.exists(file_path):
-                    img = cv2.imread(file_path)
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    st.image(img, use_container_width=True)
-                else:
-                    st.error(f"หาไฟล์ไม่เจอที่: {file_path}")
+                # --- จุดที่แก้: ใช้ os.path.join เพื่อระบุที่อยู่รูปใน Cloud ---
+                file_name = os.path.basename(image_paths[idx])
+                st.image(os.path.join("event_photos", file_name))
+    else:
+        st.warning("ไม่พบใบหน้าในรูป")
