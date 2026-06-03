@@ -13,7 +13,7 @@ image_paths = []
 embeddings = []
 
 # สแกนรูปในโฟลเดอร์ event_photos
-folder = "event_photos"
+folder = "."
 print(f"กำลังสแกนรูปในโฟลเดอร์ {folder}...")
 
 for filename in os.listdir(folder):
@@ -25,8 +25,8 @@ for filename in os.listdir(folder):
         faces = app.get(img)
         for face in faces:
             embeddings.append(face.normed_embedding)
-            image_paths.append(os.path.basename(img_path)
-
+           image_paths.append(os.path.basename(img_path))
+        
 if embeddings:
     embeddings = np.array(embeddings, dtype='float32')
     index = faiss.IndexFlatIP(512)
