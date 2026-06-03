@@ -36,18 +36,28 @@ if uploaded_file is not None:
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                # สร้าง path เต็ม
-                file_path = os.path.join("event_photos", os.path.basename(image_paths[idx]))
+                # 1. ดึงชื่อไฟล์ออกมาเพียวๆ
+                base_name = os.path.basename(image_paths[idx])
                 
-                # ตรวจสอบว่าไฟล์มีอยู่จริงไหมก่อนอ่าน
-                if os.path.exists(file_path):
-                    # เปิดรูปด้วย OpenCV แทนการใช้ st.image(path) โดยตรง
-                    img_to_show = cv2.imread(file_path)
+                # 2. ลองหาไฟล์ใน 2 ที่ (แบบมีโฟลเดอร์ และ แบบไม่มีโฟลเดอร์)
+                possible_paths = [
+                    os.path.join("event_photos", base_name),
+                    base_name
+                ]
+                
+                found_path = None
+                for p in possible_paths:
+                    if os.path.exists(p):
+                        found_path = p
+                        break
+                
+                # 3. ถ้าเจอไฟล์ ให้แสดงผล
+                if found_path:
+                    img_to_show = cv2.imread(found_path)
                     if img_to_show is not None:
-                        # แปลงสี BGR เป็น RGB เพราะ OpenCV อ่านสีสลับกัน
                         img_to_show = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
                         st.image(img_to_show, use_container_width=True)
                     else:
-                        st.error(f"ไม่สามารถอ่านไฟล์: {file_name}")
+                        st.error(f"อ่านไฟล์ไม่ได้: {found_path}")
                 else:
-                    st.error(f"หาไฟล์ไม่พบในระบบ: {file_path}")
+                    st.error(f"หาไฟล์ไม่เจอในระบบ: {base_name}")
