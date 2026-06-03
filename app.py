@@ -28,18 +28,14 @@ if uploaded_file is not None:
     
     guest_faces = app.get(img_guest)
     if guest_faces:
-        # ใช้ embedding จากรูปที่อัปโหลด
         guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
-        # --- แก้ไขส่วนการแสดงผลรูป (ลูป for idx in indices[0]:) ---
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                # ไม่ต้อง join แล้ว! อ่านชื่อไฟล์ตรงๆ จาก list
+                # ส่วนนี้คือจุดที่แก้ไขแล้ว:
                 file_name = image_paths[idx] 
-                
-                # เช็คว่าไฟล์มีอยู่จริงไหม (ในโฟลเดอร์ที่ app.py รันอยู่)
                 if os.path.exists(file_name):
                     img_to_show = cv2.imread(file_name)
                     if img_to_show is not None:
@@ -48,5 +44,6 @@ if uploaded_file is not None:
                     else:
                         st.error(f"ไฟล์เสีย: {file_name}")
                 else:
-                    # ถ้ายังแดง ให้มันโชว์ชื่อไฟล์ที่มันหาออกมาให้เห็นชัดๆ เลยครับ
-                    st.error(f"หาไฟล์ชื่อ '{file_name}' ไม่เจอใน GitHub!")
+                    st.error(f"หาไฟล์ชื่อ '{file_name}' ไม่เจอ!")
+    else:
+        st.warning("ไม่พบใบหน้าในรูป")
