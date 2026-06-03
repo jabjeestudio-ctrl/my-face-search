@@ -3,15 +3,19 @@ import cv2
 import numpy as np
 import faiss
 import pickle
+import insightface
 from insightface.app import FaceAnalysis
 import os
 
+# 1. โหลดโมเดล (ปรับปรุงให้รองรับเวอร์ชันใหม่)
 @st.cache_resource
 def load_resources():
     index = faiss.read_index("event.index")
     with open("image_paths.pkl", "rb") as f:
         image_paths = pickle.load(f)
-    app = FaceAnalysis(providers=['CPUExecutionProvider'])
+    
+    # ใช้ provider แบบ CPU
+    app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     return index, image_paths, app
 
@@ -24,9 +28,9 @@ if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img_guest = cv2.imdecode(file_bytes, 1)
     
-    guest_faces = app.get(img_guest)
-    if guest_faces:
-        guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
+    faces = app.get(img_guest)
+    if faces:
+        guest_emb = faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
         st.success("พบรูปที่ใกล้เคียงกับคุณ:")
