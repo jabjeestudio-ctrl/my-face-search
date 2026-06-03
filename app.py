@@ -17,8 +17,8 @@ def load_resources():
 
 index, image_paths, app = load_resources()
 
-st.title("ระบบสแกนใบหน้าค้นหารูป")
-uploaded_file = st.file_uploader("อัปโหลดรูปของคุณ", type=['jpg', 'jpeg', 'png'])
+st.title("ระบบสแกนใบหน้า")
+uploaded_file = st.file_uploader("อัปโหลดรูป", type=['jpg', 'jpeg', 'png'])
 
 if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
@@ -29,17 +29,15 @@ if uploaded_file is not None:
         guest_emb = guest_faces[0].normed_embedding.reshape(1, -1)
         distances, indices = index.search(guest_emb.astype('float32'), k=5)
         
-        st.success("พบรูปที่ใกล้เคียงกับคุณ:")
         for idx in indices[0]:
             if idx != -1:
-                # สร้าง path ใหม่โดยเอาชื่อไฟล์มาต่อกับโฟลเดอร์
-                file_name = image_paths[idx]
+                file_name = image_paths[idx] 
+                # นี่คือจุดที่แก้: บังคับเอาชื่อไฟล์มาต่อกับ folder ตรงนี้
                 file_path = os.path.join("event_photos", file_name)
                 
-                # อ่านรูปด้วย OpenCV
-                img_to_show = cv2.imread(file_path)
-                if img_to_show is not None:
-                    img_to_show = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
-                    st.image(img_to_show, use_container_width=True)
+                if os.path.exists(file_path):
+                    img = cv2.imread(file_path)
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    st.image(img, use_container_width=True)
                 else:
                     st.error(f"หาไฟล์ไม่เจอที่: {file_path}")
